@@ -134,6 +134,30 @@ Notes:
   from the `AG_STUDIO` env var on the server and is not committed.
 - Layout edits are saved in the browser (`localStorage`), not on the server.
 
+## Red team (`/redteam`)
+
+A page where an **attacker AI tries to break the guardrails of your own mandate**. Nothing in an attack is canned:
+
+1. **Your rules set the numbers** (`planSpecs` in `lib/redteam.ts`). The over-cap price is a multiple of *your* per-item cap; the overdraw
+   price comes from *your* remaining budget; the look-alike store is derived from *your* allowed merchants (`tracksmith.com` becomes
+   `tracksmith-outlet.com`); the keyword attack targets *your* blocked terms; the tamper attack edits *your* budget without re-signing.
+   If an attack can't be built for the mandate (no allow-list, no blocked terms, more budget left than the cap), it is **skipped, and the
+   page says why**.
+2. **An attacker AI writes the listings** (`writeListings`), fresh on every run and tailored to your goal: hidden "ignore your
+   instructions" orders, a fake "pre-authorised" notice, an exfiltration request, an off-topic product, and wording chosen to slip past
+   your keyword rule (checked afterwards: the page tells you whether the exact blocked word really is absent).
+3. **The real guardrails judge** (`runAttack`). Each attack goes through your real rules engine, then the real independent auditor
+   model, exactly as for a live purchase. The verdicts are live, not scripted.
+
+Pick one of your mandates, or **describe a new one in plain English** (parsed by the same AI that drafts mandates; nothing is created), so it
+also works on an empty install. The scoreboard shows what stopped each attack: the rules engine, the auditor, or the human approval gate.
+
+It is a **simulation**: no PayPal call, nothing saved, no money moves. A closed, expired or pending mandate is simulated as if active,
+with its real rules and real spent amount (the page says so). The rules half is deterministic and unit tested
+(`tests/redteam.test.ts` checks that every number is derived from the mandate and every attack reaches the layer it is aimed at, with no
+AI involved). The auditor half is a live AI model, so its wording can vary and an attack could in principle slip through, in which case
+the page says so and shows how much would have been bought.
+
 Run the tests and a live smoke test:
 
 ```bash
@@ -171,6 +195,8 @@ lib/paypal.ts        PayPal REST client
 lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
 lib/insights*.ts     analytics tables for the dashboard, built from the store
+lib/redteam.ts       red team: derives attacks from a mandate, has an AI write the listings, judges with the real rules + auditor
+app/redteam/         the Red team page; app/api/redteam/{plan,run} build and judge attacks (simulation only)
 app/insights/        the AG Studio dashboard page; components/insights/ holds its config, theme and AI adapter
 app/api/ai/llm/      server proxy for the dashboard's AI assistant (Gemini failover)
 tests/               rules engine tests

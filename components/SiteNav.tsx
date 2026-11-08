@@ -6,6 +6,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const TABS = [
   { id: "agent", href: "/", label: "Agent" },
   { id: "insights", href: "/insights", label: "Insights" },
+  { id: "redteam", href: "/redteam", label: "Red team" },
 ] as const;
 
 /** The translucent-free ledger header shared by every page. */
@@ -23,7 +24,7 @@ export function SiteNav({ active, children }: { active: (typeof TABS)[number]["i
               </div>
             </div>
           </Link>
-          <nav className="flex items-center gap-1" aria-label="Sections">
+          <nav className="flex shrink-0 items-center gap-1" aria-label="Sections">
             {TABS.map((t) => (
               <Link key={t.id} href={t.href} className="navlink" aria-current={t.id === active ? "page" : undefined}>
                 {t.label}

@@ -243,6 +243,7 @@ html.theme-fade *::after {
 }
 .navlink {
   position: relative;
+  white-space: nowrap; /* a tab label never wraps onto two lines when the header gets crowded */
   padding: 8px 10px;
   border-radius: 4px;
   font-size: 0.875rem;
@@ -894,6 +895,50 @@ button.chip:active {
 }
 
 /* ── Motion ───────────────────────────────────────────────── */
+/* ── Red team ─────────────────────────────────────────────── */
+.attack {
+  padding: 22px 24px;
+}
+.attack + .attack {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+/* The hostile text from a listing, shown quoted so it reads as data, not as instructions. */
+.listing {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bad) 7%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--bad) 70%, transparent);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.listing-plain {
+  background: var(--fill-soft);
+  box-shadow: inset 2px 0 0 var(--line-strong);
+}
+.stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  font-size: 0.8125rem;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+.stat:last-child {
+  box-shadow: none;
+}
+.stat b {
+  font-family: var(--display);
+  font-size: 1.375rem;
+  font-weight: 450;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }

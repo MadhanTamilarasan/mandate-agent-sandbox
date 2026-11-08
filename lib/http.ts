@@ -15,6 +15,15 @@ export function fail(e: unknown, fallbackStatus = 400) {
   return NextResponse.json({ error: llm }, { status: fallbackStatus });
 }
 
+/** For routes that spend LLM quota: refuse requests that come from another origin. Returns a response to send, or null if fine. */
+export function rejectCrossOrigin(req: Request) {
+  const origin = req.headers.get("origin");
+  if (origin && new URL(origin).host !== req.headers.get("host")) {
+    return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
+  }
+  return null;
+}
+
 export async function body<T = any>(req: Request): Promise<T> {
   try {
     return (await req.json()) as T;
