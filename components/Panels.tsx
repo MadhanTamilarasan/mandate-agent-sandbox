@@ -178,7 +178,8 @@ export function LimitOrders({ items, mandateId, onChange }: { items: AppState["l
           disabled={busy === "check"}
           onClick={() => run("check", async () => {
             const r = await post("/api/limit-orders/check", { mandateId });
-            setNote(`Checked ${r.checked} order(s), ${r.triggered} triggered.`);
+            const where = r.via === "render-workflow" ? `Render Workflows run ${r.runId}` : "direct price lookups";
+            setNote(`Checked ${r.checked} order(s) via ${where}; ${r.triggered} triggered.`);
           })}
         >
           {busy === "check" ? "Checking…" : "Check prices now"}

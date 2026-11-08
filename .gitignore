@@ -20,3 +20,6 @@ next-env.d.ts
 # Misc
 .DS_Store
 *.log
+
+# Personal submission drafts (not part of the repo)
+submission/

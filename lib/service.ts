@@ -3,6 +3,7 @@ import { env } from "./env";
 import { getProduct } from "./channel3";
 import { checkRules, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
 import * as paypal from "./paypal";
+import { checkPricesViaWorkflow } from "./workflow";
 import { logEvent, mutate, newId, readStore } from "./store";
 import type {
   Approval,
@@ -512,12 +513,25 @@ export async function simulatePriceDrop(id: string, price?: number) {
   });
 }
 
-export type CheckSummary = { checked: number; triggered: number; details: string[] };
+export type CheckSummary = {
+  checked: number;
+  triggered: number;
+  details: string[];
+  /** Where the live prices came from: a Render Workflows task run, or direct local calls. */
+  via: "render-workflow" | "local";
+  runId?: string;
+};
 
-/** The watcher tick: refresh live prices (free Channel3 call) and trigger limit orders. */
+/**
+ * The watcher tick. Live prices are fetched as a Render Workflows task run (one parallel
+ * `checkPrice` run per product) when configured, else directly (Channel3 detail is free).
+ * Either way, a price that hits its target is re-read directly before any money moves.
+ */
 export async function checkLimitOrders(mandateId?: string): Promise<CheckSummary> {
-  const summary: CheckSummary = { checked: 0, triggered: 0, details: [] };
+  const summary: CheckSummary = { checked: 0, triggered: 0, details: [], via: "local" };
   const watching = readStore().limitOrders.filter((l) => l.status === "watching" && (!mandateId || l.mandateId === mandateId));
+
+  const active: LimitOrder[] = [];
   for (const order of watching) {
     summary.checked++;
     if (Date.now() > new Date(order.expiresAt).getTime()) {
@@ -531,27 +545,77 @@ export async function checkLimitOrders(mandateId?: string): Promise<CheckSummary
       });
       continue;
     }
+    active.push(order);
+  }
+  if (active.length === 0) return summary;
 
-    let live: ProductSnapshot | null = null;
-    try {
-      live = await getProduct(order.product.id, order.product.merchant);
-    } catch (e) {
-      summary.details.push(`${order.product.title}: price check failed (${(e as Error).message})`);
-    }
+  const remote = await checkPricesViaWorkflow(active.map((o) => ({ productId: o.product.id, merchant: o.product.merchant })));
+  if (remote) {
+    summary.via = "render-workflow";
+    summary.runId = remote.runId;
+    const byMandate = new Set(active.map((o) => o.mandateId));
+    await mutate((s) => {
+      for (const id of byMandate) {
+        logEvent(s, {
+          mandateId: id,
+          actor: "system",
+          kind: "workflow_price_check",
+          summary: `Checked ${active.length} watched price(s) as Render Workflows task run ${remote.runId} (one parallel task per product).`,
+        });
+      }
+    });
+  }
+
+  for (const order of active) {
     const fresh = readStore().limitOrders.find((x) => x.id === order.id)!;
-    const price = fresh.demoPriceOverride ?? live?.price ?? fresh.currentPrice;
+    let live: ProductSnapshot | null = null;
+    let price: number | null = null;
+
+    if (remote) {
+      const q = remote.quotes.find((x) => x.productId === order.product.id);
+      price = q?.price ?? null;
+      if (q?.error) summary.details.push(`${order.product.title}: workflow price check failed (${q.error})`);
+    } else {
+      try {
+        live = await getProduct(order.product.id, order.product.merchant);
+        price = live?.price ?? null;
+      } catch (e) {
+        summary.details.push(`${order.product.title}: price check failed (${(e as Error).message})`);
+      }
+    }
+
+    const demo = fresh.demoPriceOverride;
+    const effective = demo ?? price ?? fresh.currentPrice;
     await mutate((s) => {
       const lo = s.limitOrders.find((x) => x.id === order.id)!;
-      lo.currentPrice = price;
+      lo.currentPrice = effective;
       lo.lastCheckedAt = new Date().toISOString();
     });
-    if (!live || price > fresh.targetPrice) {
-      summary.details.push(`${order.product.title}: $${price.toFixed(2)}, target $${fresh.targetPrice.toFixed(2)}`);
+    if ((price === null && demo === undefined) || effective > fresh.targetPrice) {
+      summary.details.push(`${order.product.title}: $${effective.toFixed(2)}, target $${fresh.targetPrice.toFixed(2)}`);
+      continue;
+    }
+
+    // Target hit. Never trust a remote number with money: re-read the price directly first.
+    if (!live) {
+      try {
+        live = await getProduct(order.product.id, order.product.merchant);
+      } catch {
+        live = null;
+      }
+    }
+    let product: ProductSnapshot;
+    if (demo !== undefined) {
+      product = { ...(live ?? order.product), price: effective }; // demo control: simulated drop
+    } else if (live && live.price <= fresh.targetPrice) {
+      product = live;
+    } else {
+      summary.details.push(`${order.product.title}: reported $${effective.toFixed(2)} but the direct re-check did not confirm it`);
       continue;
     }
     summary.triggered++;
-    summary.details.push(`${order.product.title}: hit target at $${price.toFixed(2)}`);
-    await triggerLimitOrder(fresh, { ...live, price });
+    summary.details.push(`${order.product.title}: hit target at $${product.price.toFixed(2)}`);
+    await triggerLimitOrder(fresh, product);
   }
   return summary;
 }

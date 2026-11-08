@@ -21,6 +21,7 @@
     "@ai-sdk/google": "^4.0.114",
     "@channel3/agent-toolkit": "^0.1.1",
     "@paypal/agent-toolkit": "^1.11.0",
+    "@renderinc/sdk": "^1.8.0",
     "ai": "^7.0.165",
     "next": "^16.4.5",
     "react": "^19.3.1",
