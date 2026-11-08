@@ -1,0 +1,31 @@
+# Render Blueprint: one click deploy of the Mandate web app.
+# Create it with: Render Dashboard -> New -> Blueprint -> pick this repo.
+# Secrets (sync: false) are entered once in the dashboard and never stored in git.
+services:
+  - type: web
+    name: mandate-agent
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/state
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: DATA_DIR
+        value: /tmp/mandate-data
+      - key: LIMIT_ORDER_POLL_SECONDS
+        value: "60"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
