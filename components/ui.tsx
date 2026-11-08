@@ -4,22 +4,56 @@ import { useState } from "react";
 import type { AgentEvent } from "@/lib/agent";
 import type { Outcome } from "@/lib/service";
 import type { AuditorVerdict, Decision, ProductSnapshot, RuleCheck } from "@/lib/types";
+import { Icon, type IconName } from "./icons";
 
 export const money = (n: number | undefined) =>
   n === undefined ? "-" : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export function Badge({ tone, children }: { tone: "good" | "warn" | "bad" | "info" | "muted"; children: React.ReactNode }) {
-  return <span className={`badge badge-${tone}`}>{children}</span>;
+/** "pending_funding" -> "Pending funding" */
+export const sentence = (s: string) => {
+  const t = s.replace(/_/g, " ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+export type Tone = "good" | "warn" | "bad" | "info" | "muted";
+
+export function Badge({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return <span className={`badge tone-${tone}`}>{children}</span>;
 }
 
-export const decisionTone = (d: Decision) => (d === "allow" ? "good" : d === "escalate" ? "warn" : "bad");
+export const decisionTone = (d: Decision): Tone => (d === "allow" ? "good" : d === "escalate" ? "warn" : "bad");
+
+export function CardHead({
+  eyebrow,
+  title,
+  note,
+  aside,
+}: {
+  eyebrow?: string;
+  title: React.ReactNode;
+  note?: React.ReactNode;
+  aside?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <div className="min-w-0">
+        {eyebrow && <p className="eyebrow mb-1.5">{eyebrow}</p>}
+        <h2 className="title-3">{title}</h2>
+        {note && <p className="footnote mt-0.5">{note}</p>}
+      </div>
+      {aside}
+    </div>
+  );
+}
 
 export function Thinking({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-      <span className="dot" />
-      <span className="dot" />
-      <span className="dot" />
+    <div className="footnote flex items-center gap-2.5" role="status">
+      <span className="typing" aria-hidden>
+        <i />
+        <i />
+        <i />
+      </span>
       <span>{label}</span>
     </div>
   );
@@ -28,33 +62,27 @@ export function Thinking({ label }: { label: string }) {
 export function ProductThumb({ p, size = 56 }: { p: ProductSnapshot; size?: number }) {
   return p.imageUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={p.imageUrl}
-      alt=""
-      referrerPolicy="no-referrer"
-      width={size}
-      height={size}
-      className="shrink-0 rounded-lg object-contain"
-      style={{ width: size, height: size, background: "#fff" }}
-    />
+    <img src={p.imageUrl} alt="" referrerPolicy="no-referrer" width={size} height={size} className="thumb" style={{ width: size, height: size }} />
   ) : (
-    <div className="shrink-0 rounded-lg" style={{ width: size, height: size, background: "var(--panel-2)" }} />
+    <div className="thumb thumb-empty" style={{ width: size, height: size }}>
+      <Icon name="bag" size={Math.round(size * 0.4)} />
+    </div>
   );
 }
 
 export function ProductCard({ p }: { p: ProductSnapshot }) {
   return (
-    <div className="flex gap-3 rounded-xl p-2.5" style={{ background: "var(--panel-2)", border: "1px solid var(--line)" }}>
+    <div className="product">
       <ProductThumb p={p} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold" title={p.title}>
+      <div className="min-w-0 flex-1 self-center">
+        <div className="truncate text-[0.875rem] font-semibold" title={p.title}>
           {p.title}
         </div>
-        <div className="truncate text-xs" style={{ color: "var(--muted)" }}>
+        <div className="caption truncate">
           {p.brand ? `${p.brand} · ` : ""}
           {p.merchant}
         </div>
-        <div className="mt-0.5 text-sm font-bold">{money(p.price)}</div>
+        <div className="num serif mt-0.5 text-[1.125rem] leading-tight">{money(p.price)}</div>
       </div>
     </div>
   );
@@ -63,27 +91,38 @@ export function ProductCard({ p }: { p: ProductSnapshot }) {
 export function Checks({ checks, auditor }: { checks: RuleCheck[]; auditor?: AuditorVerdict }) {
   const [open, setOpen] = useState(false);
   if (!checks.length && !auditor) return null;
+  const auditorTone: Tone = auditor ? decisionTone(auditor.verdict) : "muted";
   return (
-    <div className="mt-2">
-      <button className="text-xs underline" style={{ color: "var(--muted)" }} onClick={() => setOpen(!open)}>
-        {open ? "Hide" : "Show"} how it was checked ({checks.length} rules{auditor ? " + auditor" : ""})
+    <div className="mt-3">
+      <button className="disclosure" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="chevron" size={12} strokeWidth={2.4} />
+        How it was checked
+        <span className="faint">
+          · {checks.length} rules{auditor ? " + auditor" : ""}
+        </span>
       </button>
       {open && (
-        <ul className="mt-2 space-y-1 text-xs">
+        <ul className="checks rise mt-2.5 space-y-1.5 text-[0.8125rem]">
           {checks.map((c) => (
-            <li key={c.rule} className="flex gap-2">
-              <span style={{ color: c.ok ? "var(--good)" : "var(--bad)" }}>{c.ok ? "✓" : "✗"}</span>
+            <li key={c.rule}>
+              <span className={`tone-${c.ok ? "good" : "bad"}`} style={{ color: "var(--tone)" }}>
+                <Icon name={c.ok ? "check" : "x"} size={14} strokeWidth={2.4} />
+              </span>
               <span style={{ color: c.ok ? "var(--muted)" : "var(--text)" }}>{c.message}</span>
             </li>
           ))}
           {auditor && (
-            <li className="flex gap-2 pt-1" style={{ borderTop: "1px dashed var(--line)" }}>
-              <span style={{ color: `var(--${auditor.verdict === "allow" ? "good" : auditor.verdict === "escalate" ? "warn" : "bad"})` }}>
-                {auditor.verdict === "allow" ? "✓" : auditor.verdict === "escalate" ? "!" : "✗"}
+            <li className="mt-2 border-t pt-2.5" style={{ borderColor: "var(--line)" }}>
+              <span className={`tone-${auditorTone}`} style={{ color: "var(--tone)" }}>
+                <Icon name={auditor.verdict === "allow" ? "check" : auditor.verdict === "escalate" ? "alert" : "x"} size={14} strokeWidth={2.4} />
               </span>
               <span>
-                <b>Auditor</b> (fit {auditor.fitScore}/100
-                {auditor.injectionSuspected ? ", prompt injection suspected" : ""}): {auditor.reasons.join(" ")}
+                <b className="font-semibold">Auditor</b>{" "}
+                <span className="caption">
+                  fit {auditor.fitScore}/100{auditor.injectionSuspected ? " · prompt injection suspected" : ""}
+                </span>
+                <br />
+                {auditor.reasons.join(" ")}
               </span>
             </li>
           )}
@@ -93,11 +132,11 @@ export function Checks({ checks, auditor }: { checks: RuleCheck[]; auditor?: Aud
   );
 }
 
-const OUTCOME: Record<Outcome["outcome"], { label: string; tone: "good" | "warn" | "bad" }> = {
-  purchased: { label: "Purchased", tone: "good" },
-  needs_approval: { label: "Needs your approval", tone: "warn" },
-  blocked: { label: "Blocked", tone: "bad" },
-  failed: { label: "Payment failed", tone: "bad" },
+const OUTCOME: Record<Outcome["outcome"], { label: string; tone: "good" | "warn" | "bad"; icon: IconName }> = {
+  purchased: { label: "Purchased", tone: "good", icon: "check" },
+  needs_approval: { label: "Needs your approval", tone: "warn", icon: "clock" },
+  blocked: { label: "Blocked", tone: "bad", icon: "lock" },
+  failed: { label: "Payment failed", tone: "bad", icon: "alert" },
 };
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
@@ -107,20 +146,25 @@ export function OutcomeCard({ o, approvalStatus }: { o: Outcome; approvalStatus?
   let meta = OUTCOME[o.outcome];
   let message = o.message;
   if (o.outcome === "needs_approval" && approvalStatus === "approved") {
-    meta = { label: "Approved & purchased", tone: "good" };
+    meta = { label: "Approved & purchased", tone: "good", icon: "check" };
     message = "You approved this purchase and PayPal captured the payment.";
   } else if (o.outcome === "needs_approval" && approvalStatus === "rejected") {
-    meta = { label: "Rejected by you", tone: "bad" };
+    meta = { label: "Rejected by you", tone: "bad", icon: "x" };
     message = "You rejected this purchase. Nothing was charged.";
   }
   return (
-    <div className="rounded-xl p-3" style={{ background: "var(--panel-2)", border: `1px solid var(--${meta.tone === "good" ? "good" : meta.tone === "warn" ? "warn" : "bad"})55` }}>
-      <div className="mb-2 flex items-center gap-2">
-        <Badge tone={meta.tone}>{meta.label}</Badge>
-        {o.product && <span className="truncate text-xs" style={{ color: "var(--muted)" }}>{o.product.merchant}</span>}
+    <div className={`tile tone-${meta.tone}`} style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--tone) 40%, transparent)" }}>
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <span className="glyph" style={{ width: 24, height: 24, background: "color-mix(in srgb, var(--tone) 14%, transparent)", color: "var(--tone)" }}>
+          <Icon name={meta.icon} size={13} strokeWidth={2.4} />
+        </span>
+        <span className="text-[0.875rem] font-semibold tracking-[-0.01em]" style={{ color: "var(--tone)" }}>
+          {meta.label}
+        </span>
+        {o.product && <span className="caption ml-auto truncate">{o.product.merchant}</span>}
       </div>
       {o.product && <ProductCard p={o.product} />}
-      <p className="mt-2 text-sm">{message}</p>
+      <p className="mt-2.5 text-[0.875rem] leading-snug">{message}</p>
       <Checks checks={o.checks} auditor={o.auditor} />
     </div>
   );
@@ -130,8 +174,11 @@ export function EventView({ e, approvals }: { e: AgentEvent; approvals?: { id: s
   if (e.type === "search") {
     return (
       <div>
-        <div className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
-          🔎 Searched Channel3 for “{e.query}” — {e.products.length} results
+        <div className="footnote mb-2 flex items-center gap-1.5">
+          <Icon name="search" size={13} strokeWidth={2.2} />
+          <span>
+            Searched Channel3 for “{e.query}” · {e.products.length} results
+          </span>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {e.products.slice(0, 4).map((p) => (
@@ -146,12 +193,12 @@ export function EventView({ e, approvals }: { e: AgentEvent; approvals?: { id: s
     return <OutcomeCard o={e.outcome} approvalStatus={status} />;
   }
   return (
-    <div className="rounded-xl p-3" style={{ background: "var(--panel-2)", border: "1px solid var(--line)" }}>
-      <div className="mb-2">
+    <div className="tile">
+      <div className="mb-2.5">
         <Badge tone={e.ok ? "info" : "bad"}>{e.ok ? "Limit order set" : "Limit order refused"}</Badge>
       </div>
       {e.product && <ProductCard p={e.product} />}
-      <p className="mt-2 text-sm">{e.message}</p>
+      <p className="mt-2.5 text-[0.875rem] leading-snug">{e.message}</p>
     </div>
   );
 }

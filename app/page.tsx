@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "@/components/Chat";
+import { Icon, Mark } from "@/components/icons";
 import { Onboarding } from "@/components/Onboarding";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Approvals, AuditLog, DemoControls, LimitOrders, MandateCard, Purchases, type AppState } from "@/components/Panels";
+import { sentence } from "@/components/ui";
 
 export default function Home() {
   const [state, setState] = useState<AppState | null>(null);
@@ -43,76 +46,105 @@ export default function Home() {
     return () => clearInterval(t);
   }, [refresh]);
 
+  // Toasts are transient: they settle on their own.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 8000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const m = state?.mandate;
   const showOnboarding = state && (!m || creating);
 
   return (
-    <main className="mx-auto max-w-[1400px] px-4 pb-10 pt-5">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl text-xl" style={{ background: "var(--accent)" }}>
-            🛡️
+    <>
+      <header className="nav">
+        <div className="mx-auto flex h-[64px] max-w-[1360px] items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex shrink-0 items-center gap-3">
+            <Mark size={36} />
+            <div className="leading-none">
+              <div className="serif text-[1.65rem] font-medium tracking-[-0.025em]">Mandate</div>
+              <div className="serif mt-1 hidden text-[0.8125rem] italic sm:block" style={{ color: "var(--muted)" }}>
+                An agent that spends only inside your rules
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-extrabold leading-tight">Mandate</h1>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>An AI shopping agent that can only spend inside your rules</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="badge tone-warn hidden md:inline-flex">PayPal sandbox · no real money</span>
+            {state && <span className="chip hidden lg:inline-flex">{state.model}</span>}
+            {state && state.mandates.length > 0 && !creating && (
+              <>
+                <select
+                  className="input min-w-0 max-w-[9.5rem] text-ellipsis sm:max-w-[16rem]"
+                  aria-label="Mandate"
+                  value={m?.id}
+                  onChange={(e) => {
+                    setMandateId(e.target.value);
+                    refresh(e.target.value);
+                  }}
+                >
+                  {state.mandates.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name} ({sentence(x.status).toLowerCase()})
+                    </option>
+                  ))}
+                </select>
+                <button className="btn btn-sm" onClick={() => setCreating(true)} aria-label="New mandate">
+                  <Icon name="plus" size={14} strokeWidth={2.4} />
+                  <span className="hidden sm:inline">New mandate</span>
+                </button>
+              </>
+            )}
+            <ThemeToggle />
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="badge badge-warn">PayPal sandbox · no real money</span>
-          {state && <span className="badge badge-muted">{state.model}</span>}
-          {state && state.mandates.length > 0 && !creating && (
-            <>
-              <select
-                className="input !w-auto"
-                value={m?.id}
-                onChange={(e) => {
-                  setMandateId(e.target.value);
-                  refresh(e.target.value);
-                }}
-              >
-                {state.mandates.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name} ({x.status.replace("_", " ")})
-                  </option>
-                ))}
-              </select>
-              <button className="btn" onClick={() => setCreating(true)}>+ New mandate</button>
-            </>
-          )}
         </div>
       </header>
 
       {toast && (
-        <div
-          className="mb-4 flex items-center justify-between rounded-xl p-3 text-sm"
-          style={{ background: toast.tone === "good" ? "#0f3d2e" : "#3d1717", color: toast.tone === "good" ? "var(--good)" : "var(--bad)" }}
-        >
-          <span>{toast.text}</span>
-          <button className="btn btn-sm" onClick={() => setToast(null)}>Dismiss</button>
+        <div className={`toast tone-${toast.tone}`} role="status">
+          <span className="glyph" style={{ width: 26, height: 26, background: "color-mix(in srgb, var(--tone) 15%, transparent)", color: "var(--tone)" }}>
+            <Icon name={toast.tone === "good" ? "check" : "alert"} size={14} strokeWidth={2.4} />
+          </span>
+          <span className="min-w-0 flex-1 tracking-[-0.008em]">{toast.text}</span>
+          <button className="btn btn-sm" onClick={() => setToast(null)}>
+            Dismiss
+          </button>
         </div>
       )}
-      {loadError && <p className="mb-3 text-sm" style={{ color: "var(--bad)" }}>{loadError}</p>}
 
-      {!state && !loadError && <p style={{ color: "var(--muted)" }}>Loading…</p>}
+      <main className="mx-auto max-w-[1360px] px-4 pb-10 pt-5 sm:px-6">
+        {loadError && (
+          <p className="tone-bad mb-4 rounded-xl px-4 py-3 text-[0.875rem]" style={{ background: "color-mix(in srgb, var(--tone) 12%, transparent)", color: "var(--tone)" }}>
+            {loadError}
+          </p>
+        )}
 
-      {showOnboarding && <Onboarding onCancel={m ? () => setCreating(false) : undefined} />}
-
-      {state && m && !creating && (
-        <div className="grid gap-4 lg:grid-cols-[330px_minmax(0,1fr)_360px]">
-          <div className="space-y-4">
-            <MandateCard m={m} onChange={refresh} />
-            <DemoControls m={m} onChange={refresh} />
+        {!state && !loadError && (
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)_360px]" aria-busy="true" aria-label="Loading">
+            <div className="skeleton h-[420px]" />
+            <div className="skeleton hidden h-[560px] lg:block" />
+            <div className="skeleton hidden h-[300px] lg:block" />
           </div>
-          <Chat mandateId={m.id} active={m.status === "active"} approvals={state.approvals} onChange={refresh} />
-          <div className="space-y-4">
-            <Approvals items={state.approvals} onChange={refresh} />
-            <LimitOrders items={state.limitOrders} mandateId={m.id} onChange={refresh} />
-            <Purchases items={state.purchases} />
-            <AuditLog events={state.events} />
+        )}
+
+        {showOnboarding && <Onboarding onCancel={m ? () => setCreating(false) : undefined} />}
+
+        {state && m && !creating && (
+          <div className="rise grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)_360px]">
+            <div className="space-y-5">
+              <MandateCard m={m} onChange={refresh} />
+              <DemoControls m={m} onChange={refresh} />
+            </div>
+            <Chat mandateId={m.id} active={m.status === "active"} approvals={state.approvals} onChange={refresh} />
+            <div className="min-w-0 space-y-5 lg:col-span-2 xl:col-span-1">
+              <Approvals items={state.approvals} onChange={refresh} />
+              <LimitOrders items={state.limitOrders} mandateId={m.id} onChange={refresh} />
+              <Purchases items={state.purchases} />
+              <AuditLog events={state.events} />
+            </div>
           </div>
-        </div>
-      )}
-    </main>
+        )}
+      </main>
+    </>
   );
 }

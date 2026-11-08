@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { getState } from "@/lib/service";
-import { Badge, Checks, decisionTone, money, ProductThumb } from "./ui";
+import { Icon, type IconName } from "./icons";
+import { Badge, CardHead, Checks, decisionTone, money, ProductThumb, sentence, type Tone } from "./ui";
 
 export type AppState = ReturnType<typeof getState> & { model: string };
 type MandateView = NonNullable<AppState["mandate"]>;
@@ -14,10 +15,19 @@ async function post(url: string, body: unknown) {
   return j;
 }
 
+function Row({ k, children }: { k: string; children: React.ReactNode }) {
+  return (
+    <div className="row">
+      <dt>{k}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
-  const pct = (n: number) => `${Math.min(100, (n / m.budget) * 100)}%`;
-  const statusTone = m.status === "active" ? "good" : m.status === "pending_funding" ? "warn" : "muted";
+  const pct = (n: number) => `${Math.max(0, Math.min(100, (n / m.budget) * 100))}%`;
+  const statusTone: Tone = m.status === "active" ? "good" : m.status === "pending_funding" ? "warn" : "muted";
 
   async function close() {
     if (!confirm("Close this mandate and release the unspent PayPal hold?")) return;
@@ -31,64 +41,69 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
   }
 
   return (
-    <div className="card p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate font-bold">{m.name}</div>
-          <div className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>{m.goal}</div>
+    <section className="card pad">
+      <div className="flex items-start justify-between gap-3">
+        <p className="eyebrow">The mandate</p>
+        <Badge tone={statusTone}>{sentence(m.status)}</Badge>
+      </div>
+      <h2 className="title-2 mt-3">{m.name}</h2>
+      <p className="footnote mt-1.5">{m.goal}</p>
+
+      <div className="mt-7">
+        <div className="eyebrow">Available to spend</div>
+        <div className="figure num mt-2">{money(m.remaining)}</div>
+        <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
+          of {money(m.budget)} authorised
         </div>
-        <Badge tone={statusTone}>{m.status.replace("_", " ")}</Badge>
       </div>
 
-      <div className="mt-4 flex items-end justify-between">
-        <div>
-          <div className="text-2xl font-extrabold">{money(m.remaining)}</div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>left of {money(m.budget)}</div>
-        </div>
-        <div className="text-right text-xs" style={{ color: "var(--muted)" }}>
-          <div>Spent {money(m.spent)}</div>
-          <div>Reserved {money(m.reserved)}</div>
-        </div>
+      <div className="meter mt-5" role="img" aria-label={`Spent ${money(m.spent)}, reserved ${money(m.reserved)} of ${money(m.budget)}`}>
+        <i style={{ width: pct(m.spent) }} />
+        <i style={{ width: pct(m.reserved) }} />
       </div>
-      <div className="mt-2 flex h-2.5 overflow-hidden rounded-full" style={{ background: "var(--bg)" }}>
-        <div style={{ width: pct(m.spent), background: "var(--accent)" }} />
-        <div style={{ width: pct(m.reserved), background: "var(--warn)" }} />
+      <div className="legend num">
+        <span>
+          <i style={{ background: "var(--ink)" }} />
+          Spent {money(m.spent)}
+        </span>
+        <span>
+          <i style={{ background: "repeating-linear-gradient(135deg, var(--warn) 0 2px, transparent 2px 4px)", boxShadow: "inset 0 0 0 1px var(--warn)" }} />
+          Reserved {money(m.reserved)}
+        </span>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-        <dt style={{ color: "var(--muted)" }}>Per-item cap</dt>
-        <dd className="text-right">{money(m.maxPerItem)}</dd>
-        <dt style={{ color: "var(--muted)" }}>Auto-approve below</dt>
-        <dd className="text-right">{money(m.autoApproveBelow)}</dd>
-        <dt style={{ color: "var(--muted)" }}>Never buy</dt>
-        <dd className="text-right">{m.blockedTerms.join(", ") || "-"}</dd>
-        <dt style={{ color: "var(--muted)" }}>Merchants</dt>
-        <dd className="text-right">{m.allowedMerchants.join(", ") || "any"}</dd>
-        <dt style={{ color: "var(--muted)" }}>Expires</dt>
-        <dd className="text-right">{new Date(m.expiresAt).toLocaleDateString()}</dd>
-        <dt style={{ color: "var(--muted)" }}>Signature</dt>
-        <dd className="text-right">
-          {m.signatureValid ? <Badge tone="good">valid</Badge> : <Badge tone="bad">tampered</Badge>}
-        </dd>
+      <dl className="group mt-6">
+        <Row k="Per-item cap">
+          <span className="num">{money(m.maxPerItem)}</span>
+        </Row>
+        <Row k="Auto-approve below">
+          <span className="num">{money(m.autoApproveBelow)}</span>
+        </Row>
+        <Row k="Never buy">{m.blockedTerms.join(", ") || "None"}</Row>
+        <Row k="Merchants">{m.allowedMerchants.join(", ") || "Any"}</Row>
+        <Row k="Expires">{new Date(m.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</Row>
+        <Row k="Signature">{m.signatureValid ? <Badge tone="good">Signed · verified</Badge> : <Badge tone="bad">Tampered</Badge>}</Row>
         {m.paypal.authorizationId && (
-          <>
-            <dt style={{ color: "var(--muted)" }}>PayPal hold</dt>
-            <dd className="truncate text-right font-mono" title={m.paypal.authorizationId}>{m.paypal.authorizationId}</dd>
-          </>
+          <Row k="PayPal hold">
+            <span className="mono" title={m.paypal.authorizationId}>
+              {m.paypal.authorizationId}
+            </span>
+          </Row>
         )}
       </dl>
 
       {m.status === "pending_funding" && m.paypal.approveUrl && (
-        <a className="btn btn-primary mt-4 w-full" href={m.paypal.approveUrl}>
-          Approve {money(m.budget)} in PayPal →
+        <a className="btn btn-primary btn-lg btn-block mt-5" href={m.paypal.approveUrl}>
+          Approve {money(m.budget)} in PayPal
+          <Icon name="arrowRight" size={16} strokeWidth={2.2} />
         </a>
       )}
       {m.status === "active" && (
-        <button className="btn btn-sm mt-4 w-full" disabled={busy} onClick={close}>
+        <button className="btn btn-sm btn-block mt-5" disabled={busy} onClick={close}>
           Close mandate &amp; release unspent funds
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -112,28 +127,33 @@ export function Approvals({ items, onChange }: { items: AppState["approvals"]; o
   }
 
   return (
-    <div className="card p-4" style={{ borderColor: "var(--warn)" }}>
-      <div className="mb-3 flex items-center gap-2 font-bold">
-        <Badge tone="warn">Needs you</Badge> Approvals
-      </div>
+    <section className="card card-alert pad rise">
+      <CardHead
+        eyebrow="Awaiting you"
+        title="Needs your approval"
+        note={`${pending.length} purchase${pending.length > 1 ? "s" : ""} waiting on you`}
+        aside={<Badge tone="warn">Action</Badge>}
+      />
       <div className="space-y-3">
         {pending.map((a) => (
-          <div key={a.id} className="rounded-xl p-3" style={{ background: "var(--panel-2)" }}>
+          <div key={a.id} className="tile">
             <div className="flex gap-3">
               <ProductThumb p={a.product} size={48} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold">{a.product.title}</div>
-                <div className="text-xs" style={{ color: "var(--muted)" }}>
+                <div className="truncate text-[0.875rem] font-semibold tracking-[-0.01em]">{a.product.title}</div>
+                <div className="caption truncate">
                   {a.product.merchant} · {a.via === "limit_order" ? "limit order triggered" : "agent proposal"}
                 </div>
-                <div className="text-sm font-bold">{money(a.product.price)}</div>
+                <div className="num text-[0.9375rem] font-semibold tracking-[-0.02em]">{money(a.product.price)}</div>
               </div>
             </div>
-            <ul className="mt-2 list-disc pl-5 text-xs" style={{ color: "var(--muted)" }}>
-              {a.reasons.map((r, i) => <li key={i}>{r}</li>)}
+            <ul className="footnote mt-3 list-disc space-y-0.5 pl-4">
+              {a.reasons.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
             </ul>
             <Checks checks={a.checks} auditor={a.auditor} />
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3.5 flex gap-2">
               <button className="btn btn-good btn-sm flex-1" disabled={busy === a.id} onClick={() => act(a.id, "approve")}>
                 Approve &amp; pay
               </button>
@@ -144,8 +164,8 @@ export function Approvals({ items, onChange }: { items: AppState["approvals"]; o
           </div>
         ))}
       </div>
-      {err && <p className="mt-2 text-xs" style={{ color: "var(--bad)" }}>{err}</p>}
-    </div>
+      {err && <p className="caption tone-bad mt-3" style={{ color: "var(--tone)" }}>{err}</p>}
+    </section>
   );
 }
 
@@ -167,55 +187,64 @@ export function LimitOrders({ items, mandateId, onChange }: { items: AppState["l
     }
   }
 
-  const tone = (s: string) => (s === "purchased" ? "good" : s === "watching" ? "info" : s === "escalated" ? "warn" : s === "blocked" ? "bad" : "muted");
+  const tone = (s: string): Tone => (s === "purchased" ? "good" : s === "watching" ? "info" : s === "escalated" ? "warn" : s === "blocked" ? "bad" : "muted");
 
   return (
-    <div className="card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="font-bold">Limit orders</div>
-        <button
-          className="btn btn-sm"
-          disabled={busy === "check"}
-          onClick={() => run("check", async () => {
-            const r = await post("/api/limit-orders/check", { mandateId });
-            const where = r.via === "render-workflow" ? `Render Workflows run ${r.runId}` : "direct price lookups";
-            setNote(`Checked ${r.checked} order(s) via ${where}; ${r.triggered} triggered.`);
-          })}
-        >
-          {busy === "check" ? "Checking…" : "Check prices now"}
-        </button>
-      </div>
+    <section className="card pad">
+      <CardHead
+        eyebrow="Standing orders"
+        title="Limit orders"
+        note="Buys automatically when the price drops"
+        aside={
+          <button
+            className="btn btn-sm"
+            disabled={busy === "check"}
+            onClick={() =>
+              run("check", async () => {
+                const r = await post("/api/limit-orders/check", { mandateId });
+                const where = r.via === "render-workflow" ? `Render Workflows run ${r.runId}` : "direct price lookups";
+                setNote(`Checked ${r.checked} order(s) via ${where}; ${r.triggered} triggered.`);
+              })
+            }
+          >
+            {busy === "check" ? "Checking…" : "Check prices"}
+          </button>
+        }
+      />
       <div className="space-y-3">
         {items.map((o) => {
           const progress = Math.max(0, Math.min(100, ((o.product.price - o.currentPrice) / Math.max(o.product.price - o.targetPrice, 0.01)) * 100));
           return (
-            <div key={o.id} className="rounded-xl p-3" style={{ background: "var(--panel-2)" }}>
+            <div key={o.id} className="tile">
               <div className="flex gap-3">
                 <ProductThumb p={o.product} size={44} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{o.product.title}</div>
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    now {money(o.currentPrice)} → buys at ≤ {money(o.targetPrice)}
+                  <div className="truncate text-[0.875rem] font-semibold tracking-[-0.01em]">{o.product.title}</div>
+                  <div className="caption num">
+                    Now {money(o.currentPrice)} · buys at {money(o.targetPrice)} or less
                   </div>
                 </div>
-                <Badge tone={tone(o.status)}>{o.status}</Badge>
+                <Badge tone={tone(o.status)}>{sentence(o.status)}</Badge>
               </div>
               {o.status === "watching" && (
                 <>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg)" }}>
-                    <div style={{ width: `${progress}%`, background: "var(--accent)", height: "100%" }} />
+                  <div className="meter meter-sm meter-accent mt-3" role="img" aria-label={`${Math.round(progress)}% of the way to the target price`}>
+                    <i style={{ width: `${progress}%` }} />
                   </div>
-                  <div className="mt-2 flex gap-2">
+                  <div className="mt-3 flex gap-2">
                     <button
                       className="btn btn-sm flex-1"
                       title="Demo control: pretends the retailer dropped the price so you can see the trigger"
                       disabled={!!busy}
-                      onClick={() => run(o.id, async () => {
-                        await post(`/api/limit-orders/${o.id}`, { action: "simulate_drop" });
-                        await post("/api/limit-orders/check", { mandateId });
-                      })}
+                      onClick={() =>
+                        run(o.id, async () => {
+                          await post(`/api/limit-orders/${o.id}`, { action: "simulate_drop" });
+                          await post("/api/limit-orders/check", { mandateId });
+                        })
+                      }
                     >
-                      ⚡ Simulate price drop (demo)
+                      <Icon name="bolt" size={13} strokeWidth={2.2} />
+                      Simulate price drop
                     </button>
                     <button className="btn btn-sm" disabled={!!busy} onClick={() => run(o.id, () => post(`/api/limit-orders/${o.id}`, { action: "cancel" }))}>
                       Cancel
@@ -223,70 +252,81 @@ export function LimitOrders({ items, mandateId, onChange }: { items: AppState["l
                   </div>
                 </>
               )}
-              {o.statusNote && o.status !== "watching" && (
-                <div className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>{o.statusNote}</div>
-              )}
+              {o.statusNote && o.status !== "watching" && <div className="caption mt-2">{o.statusNote}</div>}
             </div>
           );
         })}
       </div>
-      {note && <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>{note}</p>}
-    </div>
+      {note && <p className="caption mt-3">{note}</p>}
+    </section>
   );
 }
 
 export function Purchases({ items }: { items: AppState["purchases"] }) {
   if (items.length === 0) return null;
   return (
-    <div className="card p-4">
-      <div className="mb-3 font-bold">Purchases <span style={{ color: "var(--muted)" }} className="text-xs font-normal">(PayPal sandbox captures)</span></div>
-      <div className="space-y-2">
+    <section className="card pad">
+      <CardHead eyebrow="The ledger" title="Purchases" note="PayPal sandbox captures" />
+      <div className="group">
         {items.map((p) => (
-          <div key={p.id} className="flex gap-3 rounded-xl p-2.5" style={{ background: "var(--panel-2)" }}>
+          <div key={p.id} className="flex items-center gap-3 py-3" style={{ boxShadow: "inset 0 -1px 0 var(--line)" }}>
             <ProductThumb p={p.product} size={40} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{p.product.title}</div>
-              <div className="truncate text-xs" style={{ color: "var(--muted)" }}>
+              <div className="truncate text-[0.875rem] font-semibold tracking-[-0.01em]">{p.product.title}</div>
+              <div className="caption truncate">
                 {p.product.merchant} · via {p.via.replace("_", " ")}
-                {p.captureId ? ` · capture ${p.captureId}` : ""}
+                {p.captureId ? ` · ${p.captureId}` : ""}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm font-bold">{money(p.amount)}</div>
-              <Badge tone={p.status === "captured" ? "good" : "bad"}>{p.status}</Badge>
+            <div className="flex flex-col items-end gap-1">
+              <div className="num serif text-[1.125rem] leading-none">{money(p.amount)}</div>
+              <Badge tone={p.status === "captured" ? "good" : "bad"}>{sentence(p.status)}</Badge>
             </div>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-        Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed.
-      </p>
-    </div>
+      <p className="caption mt-3">Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed.</p>
+    </section>
   );
 }
 
-const ACTOR: Record<string, string> = { user: "🧑", agent: "🤖", rules: "📏", auditor: "🕵️", paypal: "💳", system: "⚙️" };
+const ACTOR: Record<string, { icon: IconName; tone: Tone; label: string }> = {
+  user: { icon: "person", tone: "info", label: "You" },
+  agent: { icon: "sparkle", tone: "info", label: "Agent" },
+  rules: { icon: "sliders", tone: "muted", label: "Rules engine" },
+  auditor: { icon: "eye", tone: "muted", label: "Auditor" },
+  paypal: { icon: "card", tone: "info", label: "PayPal" },
+  system: { icon: "info", tone: "muted", label: "System" },
+};
 
 export function AuditLog({ events }: { events: AppState["events"] }) {
   return (
-    <div className="card p-4">
-      <div className="mb-3 font-bold">Audit log</div>
-      {events.length === 0 && <p className="text-xs" style={{ color: "var(--muted)" }}>Every rule check, auditor verdict and PayPal call is recorded here.</p>}
-      <ol className="max-h-[360px] space-y-2.5 overflow-y-auto pr-1">
-        {events.map((e) => (
-          <li key={e.id} className="flex gap-2 text-xs">
-            <span>{ACTOR[e.actor] ?? "•"}</span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span style={{ color: "var(--muted)" }}>{new Date(e.at).toLocaleTimeString()}</span>
-                {e.decision && <Badge tone={decisionTone(e.decision)}>{e.decision}</Badge>}
+    <section className="card pad">
+      <CardHead eyebrow="The record" title="Audit log" note="Every check, verdict and PayPal call" />
+      {events.length === 0 && <p className="footnote">Nothing yet. Activity appears here as the agent works.</p>}
+      <ol className="timeline max-h-[380px] overflow-y-auto pr-1">
+        {events.map((e) => {
+          const a = ACTOR[e.actor] ?? ACTOR.system;
+          return (
+            <li key={e.id} className={`tone-${a.tone}`}>
+              <span className="ico">
+                <Icon name={a.icon} size={13} strokeWidth={2} />
+              </span>
+              <div className="min-w-0">
+                <div className="caption flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-semibold" style={{ color: "var(--text)" }}>
+                    {a.label}
+                  </span>
+                  <span className="num">{new Date(e.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
+                  {e.decision && <Badge tone={decisionTone(e.decision)}>{sentence(e.decision)}</Badge>}
+                </div>
+                <div className="mt-0.5 text-[0.8125rem] leading-snug">{e.summary}</div>
               </div>
-              <div>{e.summary}</div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ol>
-    </div>
+    </section>
   );
 }
 
@@ -294,14 +334,13 @@ export function DemoControls({ m, onChange }: { m: MandateView; onChange: () => 
   const [busy, setBusy] = useState(false);
   const tampered = m.tamperedFrom !== undefined;
   return (
-    <div className="card p-4">
-      <div className="mb-1 font-bold">Demo controls</div>
-      <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
-        For demos only. Edit the budget without re-signing, then ask the agent to buy: every purchase is refused until the
-        signed value is restored.
+    <section className="card pad">
+      <CardHead eyebrow="Demo only" title="Demo controls" note="Not part of the product" />
+      <p className="footnote mb-3.5">
+        Edit the budget without re-signing, then ask the agent to buy. Every purchase is refused until the signed value is restored.
       </p>
       <button
-        className={`btn btn-sm w-full ${tampered ? "btn-good" : "btn-bad"}`}
+        className={`btn btn-sm btn-block ${tampered ? "btn-good" : "btn-bad"}`}
         disabled={busy || m.status !== "active"}
         onClick={async () => {
           setBusy(true);
@@ -315,6 +354,6 @@ export function DemoControls({ m, onChange }: { m: MandateView; onChange: () => 
       >
         {tampered ? "Restore signed budget" : "Tamper with the budget (×10)"}
       </button>
-    </div>
+    </section>
   );
 }
