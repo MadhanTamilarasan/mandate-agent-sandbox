@@ -28,6 +28,10 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
   const [busy, setBusy] = useState(false);
   const pct = (n: number) => `${Math.max(0, Math.min(100, (n / m.budget) * 100))}%`;
   const statusTone: Tone = m.status === "active" ? "good" : m.status === "pending_funding" ? "warn" : "muted";
+  // Once the mandate is over, what mattered is what PayPal actually held (the budget field can have been edited
+  // by the "tamper" demo control), and what is left of it is unspent (released, if the void went through).
+  const authorised = m.paypal.fundedAmount ?? m.budget;
+  const unspent = Math.max(0, Math.round((authorised - m.spent - m.reserved) * 100) / 100);
 
   async function close() {
     if (!confirm("Close this mandate and release the unspent PayPal hold?")) return;
@@ -49,12 +53,35 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
       <h2 className="title-2 mt-3">{m.name}</h2>
       <p className="footnote mt-1.5">{m.goal}</p>
 
+      {/* What the big figure means depends on the mandate's state: only an active mandate has money to spend. */}
       <div className="mt-7">
-        <div className="eyebrow">Available to spend</div>
-        <div className="figure num mt-2">{money(m.remaining)}</div>
-        <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
-          of {money(m.budget)} authorised
-        </div>
+        {m.status === "active" && (
+          <>
+            <div className="eyebrow">Available to spend</div>
+            <div className="figure num mt-2">{money(m.remaining)}</div>
+            <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
+              of {money(m.budget)} authorised
+            </div>
+          </>
+        )}
+        {m.status === "pending_funding" && (
+          <>
+            <div className="eyebrow">Budget awaiting your approval</div>
+            <div className="figure num mt-2">{money(m.budget)}</div>
+            <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
+              nothing can be spent until you approve it in PayPal
+            </div>
+          </>
+        )}
+        {(m.status === "closed" || m.status === "expired") && (
+          <>
+            <div className="eyebrow">{unspent > 0 && m.holdReleased ? "Released back to the buyer" : "Left unspent"}</div>
+            <div className="figure num mt-2">{money(unspent)}</div>
+            <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
+              of {money(authorised)} authorised, {money(m.spent)} spent. Closed: nothing more can be bought.
+            </div>
+          </>
+        )}
       </div>
 
       <div className="meter mt-5" role="img" aria-label={`Spent ${money(m.spent)}, reserved ${money(m.reserved)} of ${money(m.budget)}`}>
@@ -66,10 +93,17 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
           <i style={{ background: "var(--ink)" }} />
           Spent {money(m.spent)}
         </span>
-        <span>
-          <i style={{ background: "repeating-linear-gradient(135deg, var(--warn) 0 2px, transparent 2px 4px)", boxShadow: "inset 0 0 0 1px var(--warn)" }} />
-          Reserved {money(m.reserved)}
-        </span>
+        {m.status === "closed" || m.status === "expired" ? (
+          <span>
+            <i style={{ background: "var(--fill)", boxShadow: "inset 0 0 0 1px var(--line-strong)" }} />
+            {m.holdReleased ? "Released" : "Unspent"} {money(unspent)}
+          </span>
+        ) : (
+          <span>
+            <i style={{ background: "repeating-linear-gradient(135deg, var(--warn) 0 2px, transparent 2px 4px)", boxShadow: "inset 0 0 0 1px var(--warn)" }} />
+            Reserved {money(m.reserved)}
+          </span>
+        )}
       </div>
 
       <dl className="group mt-6">

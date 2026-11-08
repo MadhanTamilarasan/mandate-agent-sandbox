@@ -269,6 +269,7 @@ export function sampleInsights(): Out {
       spent: spent[m.id],
       reserved: round2(Math.min(reserved, Math.max(0, m.budget - spent[m.id]))),
       remaining: round2(Math.max(0, m.budget - spent[m.id] - reserved)),
+      released: 0,
       maxPerItem: m.maxPerItem,
       autoApproveBelow: m.autoApproveBelow,
       createdAt: day(new Date(today.getTime() - DAYS * 86_400_000).toISOString()),

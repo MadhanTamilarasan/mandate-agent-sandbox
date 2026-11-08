@@ -15,7 +15,8 @@ export type MandateRow = {
   budget: number;
   spent: number;
   reserved: number;
-  remaining: number;
+  remaining: number; // spendable now: only active mandates have any
+  released: number; // unspent money returned to the buyer when the mandate was closed
   maxPerItem: number;
   autoApproveBelow: number;
   createdAt: string; // yyyy-mm-dd

@@ -1,7 +1,7 @@
 import { audit } from "./auditor";
 import { env } from "./env";
 import { getProduct } from "./channel3";
-import { checkRules, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
+import { checkRules, holdWasReleased, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
 import * as paypal from "./paypal";
 import { checkPricesViaWorkflow } from "./workflow";
 import { logEvent, mutate, newId, readStore } from "./store";
@@ -57,7 +57,9 @@ export async function createMandate(input: MandateInput) {
   const funding = await paypal.createFundingOrder({
     mandateId: id,
     amount: terms.budget,
-    description: `Mandate: ${terms.name}`,
+    // Deliberately neutral: PayPal screens order text for compliance, and a user-typed name (a band, a place, a
+    // brand) can trip that screen and get the buyer's approval declined. The name stays in our own records.
+    description: `Spending mandate ${id}`,
     returnUrl: `${env.appUrl}/api/paypal/return?mandate=${id}`,
     cancelUrl: `${env.appUrl}/api/paypal/cancel?mandate=${id}`,
   });
@@ -675,7 +677,14 @@ export function getState(mandateId?: string) {
   return {
     mandates: mandates.map((m) => ({ id: m.id, name: m.name, status: m.status, budget: m.budget })),
     mandate: active
-      ? { ...active, remaining: remainingBudget(active), signatureValid: verifyMandate(active, s.signingSecret) }
+      ? {
+          ...active,
+          // Only an active mandate has anything left to spend; a closed one's unspent money went back to the buyer.
+          remaining: active.status === "active" ? remainingBudget(active) : 0,
+          // Whether closing really voided the PayPal hold (it can fail, in which case nothing was released).
+          holdReleased: holdWasReleased(s.events, active.id),
+          signatureValid: verifyMandate(active, s.signingSecret),
+        }
       : null,
     purchases: scoped(s.purchases).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     approvals: scoped(s.approvals).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),

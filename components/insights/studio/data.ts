@@ -65,6 +65,7 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["spent", "Spent", "currencyFormat"],
           ["reserved", "Reserved", "currencyFormat"],
           ["remaining", "Remaining", "currencyFormat"],
+          ["released", "Released to Buyer", "currencyFormat"],
           ["maxPerItem", "Per-item Cap", "currencyFormat"],
           ["autoApproveBelow", "Auto-approve Below", "currencyFormat"],
           ["createdAt", "Created", "dateFormat"],

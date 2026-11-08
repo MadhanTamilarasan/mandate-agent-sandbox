@@ -92,9 +92,9 @@ const overview: AgPageState = {
       type: "bar-chart-stacked",
       dataMapping: {
         categoryKey: [{ id: "mandates.name" }],
-        valueKey: [sum("mandates.spent"), sum("mandates.reserved"), sum("mandates.remaining")],
+        valueKey: [sum("mandates.spent"), sum("mandates.reserved"), sum("mandates.remaining"), sum("mandates.released")],
       },
-      format: { ...title("Budget by mandate: spent, reserved, remaining"), ...legend },
+      format: { ...title("Budget by mandate: spent, reserved, remaining, released"), ...legend },
     },
     "recent-reviews": {
       type: "grid",

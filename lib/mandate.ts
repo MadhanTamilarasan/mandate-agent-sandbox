@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Decision, Mandate, MandateTerms, ProductSnapshot, RuleCheck } from "./types";
+import type { AuditEvent, Decision, Mandate, MandateTerms, ProductSnapshot, RuleCheck } from "./types";
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -35,6 +35,29 @@ export function verifyMandate(m: Mandate, secret: string): boolean {
 
 export function remainingBudget(m: Pick<Mandate, "budget" | "spent" | "reserved">): number {
   return round2(m.budget - m.spent - m.reserved);
+}
+
+/**
+ * What the budget still means for display. Only an active mandate has money left to spend; once it is
+ * closed or expired, whatever was not spent is "unspent" (and "released" if the PayPal hold was voided).
+ */
+export function budgetView(m: Pick<Mandate, "budget" | "spent" | "reserved" | "status" | "paypal">, holdReleased: boolean) {
+  const over = m.status === "closed" || m.status === "expired";
+  // Once over, the money that mattered is what PayPal actually held (the budget field can have been edited by the
+  // "tamper" demo control and never restored).
+  const authorised = over ? (m.paypal.fundedAmount ?? m.budget) : m.budget;
+  const left = Math.max(0, round2(authorised - m.spent - m.reserved));
+  return {
+    authorised,
+    spendable: m.status === "active" ? left : 0,
+    unspent: over ? left : 0,
+    released: over && holdReleased ? left : 0,
+  };
+}
+
+/** Whether closing a mandate really voided its PayPal hold (the void can fail, releasing nothing). */
+export function holdWasReleased(events: Pick<AuditEvent, "mandateId" | "kind" | "summary">[], mandateId: string): boolean {
+  return events.some((e) => e.mandateId === mandateId && e.kind === "closed" && /hold was released/.test(e.summary));
 }
 
 export type RuleResult = { decision: Decision; checks: RuleCheck[] };

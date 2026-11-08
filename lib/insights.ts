@@ -13,13 +13,14 @@ import {
   type RuleCheckRow,
   type Source,
 } from "./insights-types";
-import { remainingBudget } from "./mandate";
+import { budgetView, holdWasReleased } from "./mandate";
 import { readStore } from "./store";
 import type { AuditEvent, Decision, Mandate, RuleCheck } from "./types";
 
 export * from "./insights-types";
 
-function mandateRow(m: Mandate, source: Source): MandateRow {
+function mandateRow(m: Mandate, source: Source, released: boolean): MandateRow {
+  const view = budgetView(m, released);
   return {
     id: m.id,
     name: m.name,
@@ -27,7 +28,8 @@ function mandateRow(m: Mandate, source: Source): MandateRow {
     budget: m.budget,
     spent: m.spent,
     reserved: m.reserved,
-    remaining: remainingBudget(m),
+    remaining: view.spendable,
+    released: view.released,
     maxPerItem: m.maxPerItem,
     autoApproveBelow: m.autoApproveBelow,
     createdAt: day(m.createdAt),
@@ -85,7 +87,7 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
   }
 
   return {
-    mandates: s.mandates.map((m) => mandateRow(m, "Live")),
+    mandates: s.mandates.map((m) => mandateRow(m, "Live", holdWasReleased(s.events, m.id))),
     reviews,
     ruleChecks,
     purchases: s.purchases.map((p) => ({
