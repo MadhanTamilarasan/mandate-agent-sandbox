@@ -104,7 +104,7 @@ export default function Home() {
             <MandateCard m={m} onChange={refresh} />
             <DemoControls m={m} onChange={refresh} />
           </div>
-          <Chat mandateId={m.id} active={m.status === "active"} onChange={refresh} />
+          <Chat mandateId={m.id} active={m.status === "active"} approvals={state.approvals} onChange={refresh} />
           <div className="space-y-4">
             <Approvals items={state.approvals} onChange={refresh} />
             <LimitOrders items={state.limitOrders} mandateId={m.id} onChange={refresh} />

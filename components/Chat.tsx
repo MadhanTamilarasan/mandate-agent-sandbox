@@ -12,7 +12,17 @@ const SUGGESTIONS = [
   "Wait for a better price: set a limit order about 15% below the best option.",
 ];
 
-export function Chat({ mandateId, active, onChange }: { mandateId: string; active: boolean; onChange: () => void }) {
+export function Chat({
+  mandateId,
+  active,
+  approvals,
+  onChange,
+}: {
+  mandateId: string;
+  active: boolean;
+  approvals: { id: string; status: "pending" | "approved" | "rejected" }[];
+  onChange: () => void;
+}) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,7 +93,7 @@ export function Chat({ mandateId, active, onChange }: { mandateId: string; activ
               }}
             >
               <div className="whitespace-pre-wrap">{m.content}</div>
-              {m.events?.map((e, k) => <EventView key={k} e={e} />)}
+              {m.events?.map((e, k) => <EventView key={k} e={e} approvals={approvals} />)}
             </div>
           </div>
         ))}

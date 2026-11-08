@@ -100,8 +100,19 @@ const OUTCOME: Record<Outcome["outcome"], { label: string; tone: "good" | "warn"
   failed: { label: "Payment failed", tone: "bad" },
 };
 
-export function OutcomeCard({ o }: { o: Outcome }) {
-  const meta = OUTCOME[o.outcome];
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export function OutcomeCard({ o, approvalStatus }: { o: Outcome; approvalStatus?: ApprovalStatus }) {
+  // A "needs approval" card goes stale once the human has acted, so reflect the live status.
+  let meta = OUTCOME[o.outcome];
+  let message = o.message;
+  if (o.outcome === "needs_approval" && approvalStatus === "approved") {
+    meta = { label: "Approved & purchased", tone: "good" };
+    message = "You approved this purchase and PayPal captured the payment.";
+  } else if (o.outcome === "needs_approval" && approvalStatus === "rejected") {
+    meta = { label: "Rejected by you", tone: "bad" };
+    message = "You rejected this purchase. Nothing was charged.";
+  }
   return (
     <div className="rounded-xl p-3" style={{ background: "var(--panel-2)", border: `1px solid var(--${meta.tone === "good" ? "good" : meta.tone === "warn" ? "warn" : "bad"})55` }}>
       <div className="mb-2 flex items-center gap-2">
@@ -109,13 +120,13 @@ export function OutcomeCard({ o }: { o: Outcome }) {
         {o.product && <span className="truncate text-xs" style={{ color: "var(--muted)" }}>{o.product.merchant}</span>}
       </div>
       {o.product && <ProductCard p={o.product} />}
-      <p className="mt-2 text-sm">{o.message}</p>
+      <p className="mt-2 text-sm">{message}</p>
       <Checks checks={o.checks} auditor={o.auditor} />
     </div>
   );
 }
 
-export function EventView({ e }: { e: AgentEvent }) {
+export function EventView({ e, approvals }: { e: AgentEvent; approvals?: { id: string; status: ApprovalStatus }[] }) {
   if (e.type === "search") {
     return (
       <div>
@@ -130,7 +141,10 @@ export function EventView({ e }: { e: AgentEvent }) {
       </div>
     );
   }
-  if (e.type === "purchase") return <OutcomeCard o={e.outcome} />;
+  if (e.type === "purchase") {
+    const status = approvals?.find((a) => a.id === e.outcome.approvalId)?.status;
+    return <OutcomeCard o={e.outcome} approvalStatus={status} />;
+  }
   return (
     <div className="rounded-xl p-3" style={{ background: "var(--panel-2)", border: "1px solid var(--line)" }}>
       <div className="mb-2">
