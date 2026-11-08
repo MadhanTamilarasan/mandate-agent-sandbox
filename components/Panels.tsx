@@ -26,12 +26,24 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
 
 export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const pct = (n: number) => `${Math.max(0, Math.min(100, (n / m.budget) * 100))}%`;
   const statusTone: Tone = m.status === "active" ? "good" : m.status === "pending_funding" ? "warn" : "muted";
   // Once the mandate is over, what mattered is what PayPal actually held (the budget field can have been edited
   // by the "tamper" demo control), and what is left of it is unspent (released, if the void went through).
   const authorised = m.paypal.fundedAmount ?? m.budget;
   const unspent = Math.max(0, Math.round((authorised - m.spent - m.reserved) * 100) / 100);
+
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Clipboard blocked (permissions, insecure origin): let the person copy it by hand.
+      window.prompt("Copy this approval link:", url);
+    }
+  }
 
   async function close() {
     if (!confirm("Close this mandate and release the unspent PayPal hold?")) return;
@@ -127,10 +139,19 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
       </dl>
 
       {m.status === "pending_funding" && m.paypal.approveUrl && (
-        <a className="btn btn-primary btn-lg btn-block mt-5" href={m.paypal.approveUrl}>
-          Approve {money(m.budget)} in PayPal
-          <Icon name="arrowRight" size={16} strokeWidth={2.2} />
-        </a>
+        <div className="mt-5 space-y-2.5">
+          <a className="btn btn-primary btn-lg btn-block" href={m.paypal.approveUrl}>
+            Approve {money(m.budget)} in PayPal
+            <Icon name="arrowRight" size={16} strokeWidth={2.2} />
+          </a>
+          <button className="btn btn-sm btn-block" onClick={() => copyLink(m.paypal.approveUrl!)}>
+            {copied ? "Link copied" : "Copy approval link"}
+          </button>
+          <p className="caption">
+            If PayPal says &ldquo;Transaction declined&rdquo;, paste this link into a new private window and try again. In testing, a fresh
+            browser session cleared it; you don&apos;t need a new mandate or account.
+          </p>
+        </div>
       )}
       {m.status === "active" && (
         <button className="btn btn-sm btn-block mt-5" disabled={busy} onClick={close}>

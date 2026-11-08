@@ -185,6 +185,11 @@ lib/workflow.ts      triggers those tasks, with a local fallback
 - **Sandbox demo:** payments are real PayPal *sandbox* captures. No retailer order is placed, and products are real
   listings used for demonstration.
 - **Single user, no login.** State is a JSON file (`DATA_DIR`), and on Render's free tier the disk resets on redeploy.
+- **PayPal may decline an approval in a stale browser session.** In testing, the sandbox checkout sometimes showed
+  "Transaction declined: to comply with international regulations" (`COMPLIANCE_KYC_VIOLATION`) after several approve-and-close
+  cycles in the same browser. Closing the private window and opening a fresh one cleared it. It comes from PayPal's own checkout,
+  before anything returns to the app, so the app can't reset it. A pending mandate has a **Copy approval link** button: paste the
+  link into a new private window and approve again. No new mandate or account needed.
 - **Price-drop button** exists because live prices rarely change during a demo. It is labeled "demo" in the UI; the
   watcher itself uses live Channel3 prices.
 - PayPal authorizations expire after 29 days, so mandates are limited to 28 days.

@@ -34,7 +34,11 @@ export default function Home() {
     const id = q.get("mandate") || undefined;
     if (id) setMandateId(id);
     if (q.get("funded")) setToast({ tone: "good", text: "Budget approved in PayPal. The mandate is funded and the agent can start." });
-    if (q.get("cancelled")) setToast({ tone: "bad", text: "You cancelled the PayPal approval. The mandate is not funded yet." });
+    if (q.get("cancelled"))
+      setToast({
+        tone: "bad",
+        text: "PayPal didn't complete the approval, so the mandate isn't funded yet. If it said “Transaction declined”, copy the approval link from the mandate card and open it in a new private window.",
+      });
     if (q.get("error")) setToast({ tone: "bad", text: q.get("error")! });
     if (q.toString()) window.history.replaceState({}, "", window.location.pathname);
     refresh(id);
