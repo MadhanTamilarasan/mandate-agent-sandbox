@@ -13,7 +13,8 @@ import { mandateStudioTheme } from "./studio/theme";
 
 if (process.env.NODE_ENV !== "production") enableStudioDevValidations();
 
-const STORAGE_KEY = "mandate-insights-report-v1";
+// Bumped to v2 when the "Data" (live/sample) filter widget was removed, so no saved layout still points at it.
+const STORAGE_KEY = "mandate-insights-report-v2";
 
 function loadSaved(): AgReportState | null {
   try {
@@ -31,7 +32,6 @@ type Props = {
   data: InsightsData;
   licenseKey?: string;
   aiEnabled: boolean;
-  sampleOn: boolean;
 };
 
 export function InsightsClient(props: Props) {
@@ -58,7 +58,7 @@ function Skeleton() {
   );
 }
 
-function Insights({ data, licenseKey, aiEnabled, sampleOn }: Props) {
+function Insights({ data, licenseKey, aiEnabled }: Props) {
   const router = useRouter();
   const apiRef = useRef<AgStudioApi | null>(null);
   // Studio reads its theme tokens when it is created, so a theme flip remounts it on the same report.
@@ -114,8 +114,6 @@ function Insights({ data, licenseKey, aiEnabled, sampleOn }: Props) {
     setSavedAt(null);
   };
 
-  const toggleSample = () => router.replace(`/insights?sample=${sampleOn ? 0 : 1}`);
-
   const asOf = new Date(data.asOf).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const editing = mode === "edit";
 
@@ -127,7 +125,6 @@ function Insights({ data, licenseKey, aiEnabled, sampleOn }: Props) {
           <h1 className="title-2">Insights</h1>
           <p className="footnote mt-1 max-w-xl">
             {PAGES.find((p) => p.id === selected)?.blurb}. Updated {asOf}.
-            {sampleOn ? ` Includes ${data.counts.sample} simulated reviews, marked Sample.` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -138,9 +135,6 @@ function Insights({ data, licenseKey, aiEnabled, sampleOn }: Props) {
               </button>
             ))}
           </div>
-          <button className="btn btn-sm" onClick={toggleSample} title="Simulated history is labelled Sample and never touches PayPal">
-            {sampleOn ? "Hide sample history" : "Show sample history"}
-          </button>
           <button className="btn btn-sm" onClick={() => router.refresh()}>
             Refresh
           </button>
@@ -193,7 +187,7 @@ function Insights({ data, licenseKey, aiEnabled, sampleOn }: Props) {
         ) : (
           <div className="card pad">
             <h2 className="title-3">No activity yet</h2>
-            <p className="footnote mt-1">Run the agent on the Agent page, or show the sample history, and the dashboard fills in.</p>
+            <p className="footnote mt-1">Fund a mandate and run the agent on the Agent page, and the dashboard fills in.</p>
           </div>
         )}
       </div>

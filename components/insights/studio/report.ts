@@ -54,14 +54,6 @@ const overview: AgPageState = {
     "kpi-reviewed": kpi("Purchases reviewed", sum("reviews.count"), "calendar::day"),
     "kpi-block-rate": kpi("Block rate", { id: "blockRate" }),
     "kpi-spent": kpi("Spent by the agent", sum("purchases.amount"), "calendar::day"),
-    "data-source": {
-      type: "button-filter",
-      dataMapping: { value: [{ id: "mandates.source" }] },
-      format: {
-        ...title("Data"),
-        style: { selection: { type: "multiple" }, dimensions: { height: 28, minWidth: 48 } },
-      },
-    },
     "reviews-by-day": {
       type: "column-chart-stacked",
       dataMapping: {
@@ -114,11 +106,10 @@ const overview: AgPageState = {
     },
   },
   widgetLayout: {
-    "kpi-protected": at(0, 0, 5, 7),
-    "kpi-reviewed": at(5, 0, 5, 7),
-    "kpi-block-rate": at(10, 0, 5, 7),
-    "kpi-spent": at(15, 0, 5, 7),
-    "data-source": at(20, 0, 4, 7),
+    "kpi-protected": at(0, 0, 6, 7),
+    "kpi-reviewed": at(6, 0, 6, 7),
+    "kpi-block-rate": at(12, 0, 6, 7),
+    "kpi-spent": at(18, 0, 6, 7),
     "reviews-by-day": at(0, 7, 16, 17),
     "outcome-split": at(16, 7, 8, 17),
     "stopped-by": at(0, 24, 12, 17),

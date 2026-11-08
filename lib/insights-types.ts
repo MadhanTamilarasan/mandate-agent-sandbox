@@ -6,8 +6,6 @@ import type { Decision, RuleCheck } from "./types";
  * human label (they become axis labels and legends as-is).
  */
 
-export type Source = "Live" | "Sample";
-
 export type MandateRow = {
   id: string;
   name: string;
@@ -20,7 +18,6 @@ export type MandateRow = {
   maxPerItem: number;
   autoApproveBelow: number;
   createdAt: string; // yyyy-mm-dd
-  source: Source;
 };
 
 export type ReviewRow = {
@@ -43,7 +40,6 @@ export type ReviewRow = {
   isEscalated: 0 | 1;
   isCleared: 0 | 1;
   injectionCaught: 0 | 1;
-  source: Source;
 };
 
 export type RuleCheckRow = {
@@ -53,7 +49,6 @@ export type RuleCheckRow = {
   date: string;
   rule: string;
   result: "Passed" | "Failed";
-  source: Source;
 };
 
 export type PurchaseRow = {
@@ -66,7 +61,6 @@ export type PurchaseRow = {
   amount: number;
   via: string;
   status: string;
-  source: Source;
 };
 
 export type LimitOrderRow = {
@@ -78,7 +72,6 @@ export type LimitOrderRow = {
   currentPrice: number;
   gapToTarget: number;
   status: string;
-  source: Source;
 };
 
 export type ApprovalRow = {
@@ -89,7 +82,6 @@ export type ApprovalRow = {
   amount: number;
   status: string;
   hoursToDecide: number | null;
-  source: Source;
 };
 
 export type InsightsData = {
@@ -100,7 +92,6 @@ export type InsightsData = {
   purchases: PurchaseRow[];
   limitOrders: LimitOrderRow[];
   approvals: ApprovalRow[];
-  counts: { live: number; sample: number };
 };
 
 export const RULE_LABEL: Record<string, string> = {

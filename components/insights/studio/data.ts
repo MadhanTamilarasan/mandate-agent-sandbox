@@ -50,7 +50,7 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
     description:
       "Mandate is an AI shopping agent that may only spend inside a signed budget. Every purchase the agent proposes is reviewed by a " +
       "deterministic rules engine and an independent auditor model; the strictest verdict wins (Approved, Needs approval, Blocked). " +
-      "Money amounts are USD. Rows with source Sample are simulated history for demonstration; rows with source Live come from real sandbox activity. " +
+      "Money amounts are USD." +
       "Use Protected for money kept safe by blocked purchases, and Block rate for how often the guardrails said no.",
     sources: [
       {
@@ -69,7 +69,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["maxPerItem", "Per-item Cap", "currencyFormat"],
           ["autoApproveBelow", "Auto-approve Below", "currencyFormat"],
           ["createdAt", "Created", "dateFormat"],
-          ["source", "Data", "textFormat"],
         ]),
       },
       {
@@ -98,7 +97,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["isEscalated", "Needs Approval", "integerFormat"],
           ["isCleared", "Cleared", "integerFormat"],
           ["injectionCaught", "Injections Caught", "integerFormat"],
-          ["source", "Review Data", "textFormat", true],
         ]),
       },
       {
@@ -113,7 +111,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["date", "Check Date", "dateFormat"],
           ["rule", "Rule", "textFormat"],
           ["result", "Result", "textFormat"],
-          ["source", "Check Data", "textFormat", true],
         ]),
       },
       {
@@ -130,7 +127,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["amount", "Amount", "currencyFormat"],
           ["via", "Approved Via", "textFormat"],
           ["status", "Payment Status", "textFormat"],
-          ["source", "Purchase Data", "textFormat", true],
         ]),
       },
       {
@@ -145,7 +141,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["amount", "Approval Amount", "currencyFormat"],
           ["status", "Approval Status", "textFormat"],
           ["hoursToDecide", "Hours to Decide", "decimalFormat"],
-          ["source", "Approval Data", "textFormat", true],
         ]),
       },
       {
@@ -162,7 +157,6 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["currentPrice", "Current Price", "currencyFormat"],
           ["gapToTarget", "Gap to Target", "currencyFormat"],
           ["status", "Order Status", "textFormat"],
-          ["source", "Order Data", "textFormat", true],
         ]),
       },
     ],

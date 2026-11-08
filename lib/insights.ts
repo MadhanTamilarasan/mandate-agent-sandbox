@@ -1,4 +1,3 @@
-import { sampleInsights } from "./insights-sample";
 import {
   day,
   OUTCOME,
@@ -11,7 +10,6 @@ import {
   type MandateRow,
   type ReviewRow,
   type RuleCheckRow,
-  type Source,
 } from "./insights-types";
 import { budgetView, holdWasReleased } from "./mandate";
 import { readStore } from "./store";
@@ -19,7 +17,7 @@ import type { AuditEvent, Decision, Mandate, RuleCheck } from "./types";
 
 export * from "./insights-types";
 
-function mandateRow(m: Mandate, source: Source, released: boolean): MandateRow {
+function mandateRow(m: Mandate, released: boolean): MandateRow {
   const view = budgetView(m, released);
   return {
     id: m.id,
@@ -33,11 +31,10 @@ function mandateRow(m: Mandate, source: Source, released: boolean): MandateRow {
     maxPerItem: m.maxPerItem,
     autoApproveBelow: m.autoApproveBelow,
     createdAt: day(m.createdAt),
-    source,
   };
 }
 
-function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
+function liveInsights(): Omit<InsightsData, "asOf"> {
   const s = readStore();
   const rulesEvents = s.events.filter((e) => e.kind === "rules_review");
   const auditorByTime = s.events.filter((e) => e.kind === "auditor_review");
@@ -70,7 +67,6 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
       injectionSuspected: !!r?.injectionSuspected,
       protectedAmount: final === "block" ? amount : 0,
       ...reviewFlags(final, !!r?.injectionSuspected),
-      source: "Live",
     });
     for (const c of checks) {
       if (c.rule === "auto_approve") continue;
@@ -81,13 +77,12 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
         date: day(e.at),
         rule: ruleLabel(c.rule),
         result: c.ok ? "Passed" : "Failed",
-        source: "Live",
       });
     }
   }
 
   return {
-    mandates: s.mandates.map((m) => mandateRow(m, "Live", holdWasReleased(s.events, m.id))),
+    mandates: s.mandates.map((m) => mandateRow(m, holdWasReleased(s.events, m.id))),
     reviews,
     ruleChecks,
     purchases: s.purchases.map((p) => ({
@@ -100,7 +95,6 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
       amount: p.amount,
       via: { agent: "Agent", limit_order: "Limit order", human_approval: "Human approval" }[p.via],
       status: p.status.replace(/^./, (c) => c.toUpperCase()),
-      source: "Live" as const,
     })),
     limitOrders: s.limitOrders.map((o) => ({
       id: o.id,
@@ -111,7 +105,6 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
       currentPrice: o.currentPrice,
       gapToTarget: round2(Math.max(0, o.currentPrice - o.targetPrice)),
       status: o.status.replace(/^./, (c) => c.toUpperCase()),
-      source: "Live" as const,
     })),
     approvals: s.approvals.map((a) => ({
       id: a.id,
@@ -121,7 +114,6 @@ function liveInsights(): Omit<InsightsData, "asOf" | "counts"> {
       amount: a.product.price,
       status: a.status.replace(/^./, (c) => c.toUpperCase()),
       hoursToDecide: a.resolvedAt ? round2((Date.parse(a.resolvedAt) - Date.parse(a.createdAt)) / 3_600_000) : null,
-      source: "Live" as const,
     })),
   };
 }
@@ -133,18 +125,7 @@ function legacyAuditor(rules: AuditEvent, auditorEvents: AuditEvent[]) {
   return d?.verdict ? { verdict: d.verdict, injection: !!d.injectionSuspected } : undefined;
 }
 
-export function buildInsights(opts: { sample: boolean }): InsightsData {
-  const live = liveInsights();
-  const sample = opts.sample ? sampleInsights() : null;
-  const merge = <K extends keyof typeof live>(k: K) => [...live[k], ...(sample?.[k] ?? [])] as (typeof live)[K];
-  return {
-    asOf: new Date().toISOString(),
-    mandates: merge("mandates"),
-    reviews: merge("reviews"),
-    ruleChecks: merge("ruleChecks"),
-    purchases: merge("purchases"),
-    limitOrders: merge("limitOrders"),
-    approvals: merge("approvals"),
-    counts: { live: live.reviews.length, sample: sample?.reviews.length ?? 0 },
-  };
+/** Everything the dashboard shows is read straight from the store: real mandates, reviews, purchases and approvals. */
+export function buildInsights(): InsightsData {
+  return { asOf: new Date().toISOString(), ...liveInsights() };
 }

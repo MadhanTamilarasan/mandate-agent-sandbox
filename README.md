@@ -128,9 +128,8 @@ What is custom here, beyond dropping the component in:
 
 Notes:
 
-- **Sample history.** While there is little real activity the page also shows ~17 simulated reviews, every row labelled
-  `Sample` (toggle with **Hide sample history**, or `?sample=0`). They are generated in `lib/insights-sample.ts`, never touch
-  PayPal, and are never mixed into the Agent page.
+- **Real data only.** The dashboard reads straight from the store (your mandates, purchase reviews, approvals, limit orders
+  and captured purchases). There is no demo data, so with a fresh store it starts empty and fills in as you use the agent.
 - **Licence.** AG Studio is a commercial product; this project uses its free trial licence for evaluation. The key is read
   from the `AG_STUDIO` env var on the server and is not committed.
 - Layout edits are saved in the browser (`localStorage`), not on the server.
@@ -171,7 +170,7 @@ lib/service.ts       purchase pipeline, approvals, limit orders, PayPal settleme
 lib/paypal.ts        PayPal REST client
 lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
-lib/insights*.ts     analytics tables for the dashboard (live rows + labelled sample history)
+lib/insights*.ts     analytics tables for the dashboard, built from the store
 app/insights/        the AG Studio dashboard page; components/insights/ holds its config, theme and AI adapter
 app/api/ai/llm/      server proxy for the dashboard's AI assistant (Gemini failover)
 tests/               rules engine tests
