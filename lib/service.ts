@@ -282,6 +282,15 @@ function recordReview(mandateId: string, product: ProductSnapshot, rules: { deci
         ? `Rules blocked "${product.title}": ${failed.map((f) => f.message).join("; ")}`
         : `Rules passed for "${product.title}" at $${product.price.toFixed(2)}.`,
       details: rules.checks,
+      review: {
+        title: product.title,
+        merchant: product.merchant,
+        amount: product.price,
+        final,
+        auditorVerdict: auditor?.verdict,
+        fitScore: auditor?.fitScore,
+        injectionSuspected: auditor?.injectionSuspected,
+      },
     });
     if (auditor) {
       logEvent(s, {
@@ -293,7 +302,6 @@ function recordReview(mandateId: string, product: ProductSnapshot, rules: { deci
         details: auditor,
       });
     }
-    void final;
   });
 }
 

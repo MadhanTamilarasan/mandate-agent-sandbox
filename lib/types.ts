@@ -97,6 +97,17 @@ export type LimitOrder = {
   expiresAt: string;
 };
 
+/** Structured facts about one purchase review, so analytics never has to parse summaries. */
+export type ReviewFacts = {
+  title: string;
+  merchant: string;
+  amount: number;
+  final: Decision; // strictest of rules + auditor
+  auditorVerdict?: Decision;
+  fitScore?: number;
+  injectionSuspected?: boolean;
+};
+
 export type AuditEvent = {
   id: string;
   mandateId: string;
@@ -106,6 +117,8 @@ export type AuditEvent = {
   decision?: Decision;
   summary: string;
   details?: unknown;
+  /** Present on `rules_review` events recorded after analytics were added. */
+  review?: ReviewFacts;
 };
 
 export type Store = {

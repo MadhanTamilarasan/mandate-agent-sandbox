@@ -78,6 +78,11 @@ export function getModel(): LanguageModel {
   return failoverModel();
 }
 
+/** Whether an API key exists for the configured provider (used to decide if AI features are offered). */
+export function llmConfigured(): boolean {
+  return env.llmProvider === "anthropic" ? !!process.env.ANTHROPIC_API_KEY?.trim() : !!process.env.GEMINI_API_KEY?.trim();
+}
+
 export function modelLabel(): string {
   if (env.llmProvider === "anthropic") return `anthropic/${env.llmModel || DEFAULT_ANTHROPIC}`;
   return `gemini (${geminiPool().length}-model failover)`;

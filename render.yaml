@@ -29,3 +29,5 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: AG_STUDIO
+        sync: false

@@ -86,6 +86,7 @@ Fill in `.env`:
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | [PayPal Developer Dashboard](https://developer.paypal.com/dashboard/) → Apps & Credentials → Sandbox → Create App (Merchant) |
 | `CHANNEL3_API_KEY` | [trychannel3.com/developers](https://trychannel3.com/developers) (free; hackathon promo `PAYPAL-HACKATHON-2026`) |
 | `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (free, no card) |
+| `AG_STUDIO` (optional) | AG Studio licence key: free 45-day trial at [ag-grid.com/studio/react/enterprise-licence](https://www.ag-grid.com/studio/react/enterprise-licence/). Without it the Insights page still works, with a watermark. |
 
 > **Use US sandbox accounts.** Sandbox accounts created with country India (IN) fail at PayPal checkout with
 > "This seller doesn't accept payments in your currency". Create a **US Business** account for the app and a **US Personal**
@@ -100,7 +101,39 @@ Fill in `.env`:
    Click **Simulate price drop (demo)**: the order triggers, runs the same checks, and asks for your approval.
 4. Click **Tamper with the budget (×10)** in Demo controls and ask it to buy again. Every purchase is refused until the
    signed value is restored.
-5. **Close mandate** to void the unspent PayPal hold.
+5. Open **Insights** in the top bar for the analytics dashboard (see below).
+6. **Close mandate** to void the unspent PayPal hold.
+
+## Insights dashboard (AG Studio)
+
+`/insights` is an [AG Studio](https://www.ag-grid.com/studio/) dashboard over everything the agent has done:
+what it tried to buy, what the rules engine and auditor stopped, and where the money went. Three pages:
+
+- **Overview**: money kept safe, purchases reviewed, block rate, reviews by day and outcome, what decided each review,
+  budget by mandate.
+- **Guardrails**: which rules pass or fail, prompt injections caught, auditor fit scores, human approvals, limit orders.
+- **Ledger**: captured purchases, spend by merchant and brand.
+
+What is custom here, beyond dropping the component in:
+
+- **Theme:** Studio reads the app's own design tokens (`app/globals.css`), so widgets, grids and charts match the ledger
+  look and switch with the light/dark toggle (`components/insights/studio/theme.ts`).
+- **Data model:** the store is flattened into related tables with calendars and calculated rates (block rate,
+  auto-clear rate, budget used) in `components/insights/studio/data.ts`, fed by `lib/insights.ts`.
+- **AI assistant on Gemini:** AG Studio's agent framework is provider-agnostic. `components/insights/studio/ai.ts` is a
+  browser-side adapter that talks to `app/api/ai/llm/route.ts`, which runs each turn on the same Gemini failover pool as
+  the shopping agent (or Claude, with `LLM_PROVIDER=anthropic`). The API key stays on the server. Open **Edit dashboard**
+  and ask, for example, *"Which rule stops the most purchases, and how much money did that keep safe?"*
+- **Responsive:** on phones the widgets restack into one column.
+
+Notes:
+
+- **Sample history.** While there is little real activity the page also shows ~17 simulated reviews, every row labelled
+  `Sample` (toggle with **Hide sample history**, or `?sample=0`). They are generated in `lib/insights-sample.ts`, never touch
+  PayPal, and are never mixed into the Agent page.
+- **Licence.** AG Studio is a commercial product; this project uses its free trial licence for evaluation. The key is read
+  from the `AG_STUDIO` env var on the server and is not committed.
+- Layout edits are saved in the browser (`localStorage`), not on the server.
 
 Run the tests and a live smoke test:
 
@@ -112,8 +145,7 @@ npm run typecheck
 
 ## Deploy on Render
 
-`render.yaml` is a Blueprint: **Render Dashboard → New → Blueprint →** pick this repo, then fill the four secrets
-(`PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `CHANNEL3_API_KEY`, `GEMINI_API_KEY`). PayPal return links use
+`render.yaml` is a Blueprint: **Render Dashboard → New → Blueprint →** pick this repo, then fill the secrets: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `CHANNEL3_API_KEY`, `GEMINI_API_KEY`, and optionally `AG_STUDIO` (the AG Studio licence). PayPal return links use
 `RENDER_EXTERNAL_URL` automatically. The in-process watcher polls limit orders every 60s; `npm run worker` runs the same
 check as a standalone background worker.
 
@@ -139,6 +171,9 @@ lib/service.ts       purchase pipeline, approvals, limit orders, PayPal settleme
 lib/paypal.ts        PayPal REST client
 lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
+lib/insights*.ts     analytics tables for the dashboard (live rows + labelled sample history)
+app/insights/        the AG Studio dashboard page; components/insights/ holds its config, theme and AI adapter
+app/api/ai/llm/      server proxy for the dashboard's AI assistant (Gemini failover)
 tests/               rules engine tests
 worker/              optional standalone limit-order watcher
 workflows/           optional Render Workflows tasks for parallel price checks (see above)

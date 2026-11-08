@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Chat } from "@/components/Chat";
-import { Icon, Mark } from "@/components/icons";
+import { Icon } from "@/components/icons";
 import { Onboarding } from "@/components/Onboarding";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SiteNav } from "@/components/SiteNav";
 import { Approvals, AuditLog, DemoControls, LimitOrders, MandateCard, Purchases, type AppState } from "@/components/Panels";
 import { sentence } from "@/components/ui";
 
@@ -58,47 +58,33 @@ export default function Home() {
 
   return (
     <>
-      <header className="nav">
-        <div className="mx-auto flex h-[64px] max-w-[1360px] items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex shrink-0 items-center gap-3">
-            <Mark size={36} />
-            <div className="leading-none">
-              <div className="serif text-[1.65rem] font-medium tracking-[-0.025em]">Mandate</div>
-              <div className="serif mt-1 hidden text-[0.8125rem] italic sm:block" style={{ color: "var(--muted)" }}>
-                An agent that spends only inside your rules
-              </div>
-            </div>
-          </div>
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="badge tone-warn hidden md:inline-flex">PayPal sandbox · no real money</span>
-            {state && <span className="chip hidden lg:inline-flex">{state.model}</span>}
-            {state && state.mandates.length > 0 && !creating && (
-              <>
-                <select
-                  className="input min-w-0 max-w-[9.5rem] text-ellipsis sm:max-w-[16rem]"
-                  aria-label="Mandate"
-                  value={m?.id}
-                  onChange={(e) => {
-                    setMandateId(e.target.value);
-                    refresh(e.target.value);
-                  }}
-                >
-                  {state.mandates.map((x) => (
-                    <option key={x.id} value={x.id}>
-                      {x.name} ({sentence(x.status).toLowerCase()})
-                    </option>
-                  ))}
-                </select>
-                <button className="btn btn-sm" onClick={() => setCreating(true)} aria-label="New mandate">
-                  <Icon name="plus" size={14} strokeWidth={2.4} />
-                  <span className="hidden sm:inline">New mandate</span>
-                </button>
-              </>
-            )}
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <SiteNav active="agent">
+        <span className="badge tone-warn hidden md:inline-flex">PayPal sandbox · no real money</span>
+        {state && <span className="chip hidden xl:inline-flex">{state.model}</span>}
+        {state && state.mandates.length > 0 && !creating && (
+          <>
+            <select
+              className="input min-w-0 max-w-[9.5rem] text-ellipsis sm:max-w-[16rem]"
+              aria-label="Mandate"
+              value={m?.id}
+              onChange={(e) => {
+                setMandateId(e.target.value);
+                refresh(e.target.value);
+              }}
+            >
+              {state.mandates.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name} ({sentence(x.status).toLowerCase()})
+                </option>
+              ))}
+            </select>
+            <button className="btn btn-sm" onClick={() => setCreating(true)} aria-label="New mandate">
+              <Icon name="plus" size={14} strokeWidth={2.4} />
+              <span className="hidden sm:inline">New mandate</span>
+            </button>
+          </>
+        )}
+      </SiteNav>
 
       {toast && (
         <div className={`toast tone-${toast.tone}`} role="status">
