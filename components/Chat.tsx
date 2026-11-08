@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvent } from "@/lib/agent";
 import { Icon } from "./icons";
-import { EventView, Thinking } from "./ui";
+import type { Outcome } from "@/lib/service";
+import type { ProductSnapshot } from "@/lib/types";
+import { EventView, Thinking, money, type BuyControls } from "./ui";
 
 type Msg = { role: "user" | "assistant"; content: string; events?: AgentEvent[]; error?: boolean };
 
@@ -27,6 +29,7 @@ export function Chat({
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [buyingId, setBuyingId] = useState<string | undefined>();
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +61,33 @@ export function Chat({
       onChange();
     }
   }
+
+  /** The person picked a product from the results. Same guardrails as an agent proposal. */
+  async function buy(p: ProductSnapshot) {
+    if (busy || !active) return;
+    const next: Msg[] = [...msgs, { role: "user", content: `Buy "${p.title}" from ${p.merchant} for ${money(p.price)}.` }];
+    setMsgs(next);
+    setBusy(true);
+    setBuyingId(p.id);
+    try {
+      const res = await fetch("/api/purchases/propose", {
+        method: "POST",
+        body: JSON.stringify({ mandateId, productId: p.id, merchant: p.merchant, quotedPrice: p.price }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      const outcome = j as Outcome;
+      setMsgs([...next, { role: "assistant", content: outcome.message, events: [{ type: "purchase", outcome }] }]);
+    } catch (e) {
+      setMsgs([...next, { role: "assistant", content: (e as Error).message, error: true }]);
+    } finally {
+      setBusy(false);
+      setBuyingId(undefined);
+      onChange();
+    }
+  }
+
+  const buyControls: BuyControls = { enabled: active && !busy, busyId: buyingId, onBuy: buy };
 
   return (
     <section className="card flex h-[calc(100dvh-124px)] min-h-[560px] flex-col overflow-hidden">
@@ -111,13 +141,13 @@ export function Chat({
           ) : (
             <div key={i} className="rise space-y-3">
               <div className="prose-agent whitespace-pre-wrap">{m.content}</div>
-              {m.events?.map((e, k) => <EventView key={k} e={e} approvals={approvals} />)}
+              {m.events?.map((e, k) => <EventView key={k} e={e} approvals={approvals} buy={buyControls} />)}
             </div>
           ),
         )}
         {busy && (
           <div className="rise">
-            <Thinking label="Searching and checking… this can take 20–40s" />
+            <Thinking label={buyingId ? "Checking the rules and the auditor…" : "Searching and checking… this can take 20–40s"} />
           </div>
         )}
         <div ref={end} />

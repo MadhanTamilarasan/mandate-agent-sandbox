@@ -70,7 +70,7 @@ export function ProductThumb({ p, size = 56 }: { p: ProductSnapshot; size?: numb
   );
 }
 
-export function ProductCard({ p }: { p: ProductSnapshot }) {
+export function ProductCard({ p, children }: { p: ProductSnapshot; children?: React.ReactNode }) {
   return (
     <div className="product">
       <ProductThumb p={p} />
@@ -83,7 +83,44 @@ export function ProductCard({ p }: { p: ProductSnapshot }) {
           {p.merchant}
         </div>
         <div className="num serif mt-0.5 text-[1.125rem] leading-tight">{money(p.price)}</div>
+        {children}
       </div>
+    </div>
+  );
+}
+
+/** What a person can do with a search result. Omitted when the agent is not active. */
+export type BuyControls = {
+  enabled: boolean;
+  /** Product currently being reviewed, so only its button shows progress. */
+  busyId?: string;
+  onBuy: (p: ProductSnapshot) => void;
+};
+
+// Product links come from third-party listings: only ever open real web URLs.
+const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : undefined);
+
+function ResultActions({ p, buy }: { p: ProductSnapshot; buy?: BuyControls }) {
+  const href = safeUrl(p.buyUrl);
+  if (!buy && !href) return null;
+  const busy = buy?.busyId === p.id;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {buy && (
+        <button
+          className="btn btn-primary btn-sm"
+          disabled={!buy.enabled || !!buy.busyId}
+          title="Sends this exact product through the rules engine and the auditor. A blocked purchase stays blocked."
+          onClick={() => buy.onBuy(p)}
+        >
+          {busy ? "Checking…" : "Buy this"}
+        </button>
+      )}
+      {href && (
+        <a className="btn btn-sm" href={href} target="_blank" rel="noopener noreferrer" aria-label={`View ${p.title} at ${p.merchant} (opens in a new tab)`}>
+          View
+        </a>
+      )}
     </div>
   );
 }
@@ -170,7 +207,7 @@ export function OutcomeCard({ o, approvalStatus }: { o: Outcome; approvalStatus?
   );
 }
 
-export function EventView({ e, approvals }: { e: AgentEvent; approvals?: { id: string; status: ApprovalStatus }[] }) {
+export function EventView({ e, approvals, buy }: { e: AgentEvent; approvals?: { id: string; status: ApprovalStatus }[]; buy?: BuyControls }) {
   if (e.type === "search") {
     return (
       <div>
@@ -182,7 +219,9 @@ export function EventView({ e, approvals }: { e: AgentEvent; approvals?: { id: s
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {e.products.slice(0, 4).map((p) => (
-            <ProductCard key={p.id} p={p} />
+            <ProductCard key={p.id} p={p}>
+              <ResultActions p={p} buy={buy} />
+            </ProductCard>
           ))}
         </div>
       </div>
