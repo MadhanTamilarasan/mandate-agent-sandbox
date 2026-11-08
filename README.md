@@ -124,6 +124,17 @@ What is custom here, beyond dropping the component in:
   browser-side adapter that talks to `app/api/ai/llm/route.ts`, which runs each turn on the same Gemini failover pool as
   the shopping agent (or Claude, with `LLM_PROVIDER=anthropic`). The API key stays on the server. Open **Edit dashboard**
   and ask, for example, *"Which rule stops the most purchases, and how much money did that keep safe?"*
+- **A custom agent, `guardrail`** (`components/insights/studio/guardrail.ts`). AG Studio ships five agents (lead, planning, data, page, widget).
+  Ours is a sixth, with its own instructions and one custom tool, `check_purchase_against_mandate`, defined with `api.defineAiTool`. Ask the
+  assistant *"would a $249 GPS watch from amazon.com pass my Sister Runner mandate?"* and the lead delegates to `guardrail`, which calls
+  `/api/preflight`: **the app's real rules engine, then the real auditor model**, against your real mandate. Nothing is bought and no money
+  moves. The answer is the engine's verdict, who decided, each failed rule and the auditor's reasoning (and, if the mandate is closed, it says a
+  live purchase would be refused). The built-in lead is re-declared so it can delegate to the new agent, and told never to claim a check it
+  didn't get from a specialist. `ai.ts` also accepts the plain-string delegate target Gemini sends (`type: "guardrail"`) where AG Studio
+  expects `{ id }`: without that, delegation failed and the model made up an answer.
+- **A custom widget, the Guardrail seal** (`components/insights/studio/seal-widget.tsx`). Registered through `createWidgets`, it appears
+  in Studio's Compose menu under *Mandate*, reads three fields from the Purchase Reviews data (purchases stopped, reviewed, money kept safe)
+  with `widgetApi.getData`, and draws them on the same scalloped seal as the app's logo, in the theme's colours for light and dark.
 - **Responsive:** on phones the widgets restack into one column.
 
 Notes:
@@ -195,6 +206,8 @@ lib/paypal.ts        PayPal REST client
 lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
 lib/insights*.ts     analytics tables for the dashboard, built from the store
+lib/preflight.ts     "would this purchase pass?": the real rules engine + auditor against a real mandate, read-only
+app/api/preflight/   its endpoint, used by the dashboard assistant's guardrail agent
 lib/redteam.ts       red team: derives attacks from a mandate, has an AI write the listings, judges with the real rules + auditor
 app/redteam/         the Red team page; app/api/redteam/{plan,run} build and judge attacks (simulation only)
 app/insights/        the AG Studio dashboard page; components/insights/ holds its config, theme and AI adapter

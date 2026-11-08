@@ -1,7 +1,7 @@
 "use client";
 
 import { AgStudioAiModule, enableStudioDevValidations, type AgReportState, type AgStudioApi, type AgStudioMode } from "ag-studio";
-import { AgStudio, AgStudioProvider } from "ag-studio-react";
+import { AgStudio, AgStudioProvider, createWidgets } from "ag-studio-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { InsightsData } from "@/lib/insights-types";
@@ -9,12 +9,14 @@ import { Icon } from "../icons";
 import { buildAi } from "./studio/ai";
 import { buildStudioData, hasData } from "./studio/data";
 import { PAGES, RESPONSIVE_BREAKPOINTS, defaultReport } from "./studio/report";
+import { guardrailSealWidget } from "./studio/seal-widget";
 import { mandateStudioTheme } from "./studio/theme";
 
 if (process.env.NODE_ENV !== "production") enableStudioDevValidations();
 
-// Bumped to v2 when the "Data" (live/sample) filter widget was removed, so no saved layout still points at it.
-const STORAGE_KEY = "mandate-insights-report-v2";
+// Bumped when the default report changes (v2: the live/sample filter was removed; v3: the custom Guardrail seal was added),
+// so a layout saved earlier does not hide the new widget.
+const STORAGE_KEY = "mandate-insights-report-v3";
 
 function loadSaved(): AgReportState | null {
   try {
@@ -27,6 +29,10 @@ function loadSaved(): AgReportState | null {
 }
 
 const noSubscription = () => () => {};
+
+// Studio's own widget menu, plus our custom Guardrail seal in a group of its own.
+const widgets = (base: { menu: any[] }) =>
+  createWidgets({ additionalTypes: [guardrailSealWidget], menu: [...base.menu, { label: "Mandate", widgetIds: ["guardrail-seal"] }] } as any);
 
 type Props = {
   data: InsightsData;
@@ -70,7 +76,11 @@ function Insights({ data, licenseKey, aiEnabled }: Props) {
 
   const initialState = useMemo(() => carry.current ?? loadSaved() ?? defaultReport(), [themeKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const studioData = useMemo(() => buildStudioData(data), [data]);
-  const ai = useMemo(() => (aiEnabled ? buildAi() : undefined), [aiEnabled]);
+  // The assistant's guardrail check needs to know which mandates the user has (it lists them as the tool's choices).
+  const ai = useMemo(
+    () => (aiEnabled ? buildAi(data.mandates.map((m) => ({ id: m.id, name: m.name, status: m.status.toLowerCase() }))) : undefined),
+    [aiEnabled, data.mandates],
+  );
 
   useEffect(() => {
     const obs = new MutationObserver(() => {
@@ -170,6 +180,7 @@ function Insights({ data, licenseKey, aiEnabled }: Props) {
               style={{ height: "100%", width: "100%" }}
               theme={mandateStudioTheme}
               data={studioData}
+              widgets={widgets as any}
               responsiveLayoutBreakpoints={RESPONSIVE_BREAKPOINTS}
               ai={ai}
               initialState={initialState}

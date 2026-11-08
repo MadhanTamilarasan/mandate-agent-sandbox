@@ -133,7 +133,7 @@ export type Subject = {
 export function subjectFromMandate(m: Mandate, secret: string): Subject {
   const notes: string[] = [];
   if (m.status !== "active") {
-    notes.push(`This mandate is ${m.status.replace(/_/g, " ")}. The lab simulates it as if it were active, using its real rules and its real spent amount.`);
+    notes.push(`This mandate is ${m.status.replace(/_/g, " ")}. These checks treat it as if it were active, using its real rules and its real spent amount.`);
   }
   if (m.tamperedFrom !== undefined) notes.push("The demo tamper control is on for this mandate; the simulation uses its original signed budget.");
   const expired = Date.parse(m.expiresAt) <= Date.now();

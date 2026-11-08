@@ -122,6 +122,12 @@ const guardrails: AgPageState = {
   id: "guardrails",
   layout: { minWidth: 320 },
   widgets: {
+    // A custom widget (see seal-widget.tsx): the headline of the Guardrails page.
+    "guardrail-seal": {
+      type: "guardrail-seal",
+      dataMapping: { blocked: [sum("reviews.isBlocked")], reviewed: [sum("reviews.count")], kept: [sum("reviews.protectedAmount")] },
+      format: title("Guardrail seal"),
+    } as any,
     "kpi-injections": kpi("Prompt injections caught", sum("reviews.injectionCaught")),
     "kpi-clear-rate": kpi("Cleared without a human", { id: "clearRate" }),
     "kpi-fit": kpi("Average auditor fit", avg("reviews.fitScore")),
@@ -167,14 +173,15 @@ const guardrails: AgPageState = {
     },
   },
   widgetLayout: {
-    "kpi-injections": at(0, 0, 6, 7),
-    "kpi-clear-rate": at(6, 0, 6, 7),
-    "kpi-fit": at(12, 0, 6, 7),
-    "kpi-decide": at(18, 0, 6, 7),
-    "rule-results": at(0, 7, 14, 18),
-    "fit-by-verdict": at(14, 7, 10, 18),
-    "approval-split": at(0, 25, 8, 17),
-    "limit-orders": at(8, 25, 16, 17),
+    "guardrail-seal": at(0, 0, 8, 14),
+    "kpi-injections": at(8, 0, 8, 7),
+    "kpi-clear-rate": at(16, 0, 8, 7),
+    "kpi-fit": at(8, 7, 8, 7),
+    "kpi-decide": at(16, 7, 8, 7),
+    "rule-results": at(0, 14, 14, 18),
+    "fit-by-verdict": at(14, 14, 10, 18),
+    "approval-split": at(0, 32, 8, 17),
+    "limit-orders": at(8, 32, 16, 17),
   },
 };
 
