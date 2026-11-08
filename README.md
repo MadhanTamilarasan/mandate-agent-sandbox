@@ -117,6 +117,17 @@ npm run typecheck
 `RENDER_EXTERNAL_URL` automatically. The in-process watcher polls limit orders every 60s; `npm run worker` runs the same
 check as a standalone background worker.
 
+### Optional: price checks on Render Workflows (off by default)
+
+`workflows/` contains [Render Workflows](https://render.com/docs/workflows) tasks: `checkPrices` fans out one parallel
+`checkPrice` run per watched product, each on its own instance with its own retries. When enabled, the web app triggers it
+through the Render SDK (`lib/workflow.ts`); a price that hits its target is still re-read directly before any money moves.
+
+It is **not enabled in the hosted demo** (Workflows requires a payment method on the Render account), so the demo checks
+prices with direct Channel3 lookups, which is also the automatic fallback. To enable it: create a Workflow service from this
+repo with root directory `workflows`, build command `npm install`, start command `npm start`, and `CHANNEL3_API_KEY` set; then
+set `RENDER_API_KEY` and `RENDER_WORKFLOW_SLUG` on the web service. This path has not been exercised against a live workflow.
+
 ## Project layout
 
 ```
@@ -130,6 +141,8 @@ lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
 tests/               rules engine tests
 worker/              optional standalone limit-order watcher
+workflows/           optional Render Workflows tasks for parallel price checks (see above)
+lib/workflow.ts      triggers those tasks, with a local fallback
 ```
 
 ## Honest limitations
