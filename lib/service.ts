@@ -1,7 +1,7 @@
 import { audit } from "./auditor";
 import { env } from "./env";
 import { getProduct } from "./channel3";
-import { checkRules, holdWasReleased, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
+import { checkRules, holdWasReleased, netSpent, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
 import * as paypal from "./paypal";
 import { checkPricesViaWorkflow } from "./workflow";
 import { recordRefund, refundable, refundedTotal } from "./refunds";
@@ -234,6 +234,17 @@ async function settle(
     if (purchase.status === "failed") {
       s.purchases.push(purchase);
       logEvent(s, { mandateId, actor: "paypal", kind: "capture_failed", summary: `PayPal capture failed: ${purchase.error ?? "unexpected status"}` });
+      // PayPal refused because the hold has no room left: refunded money is NOT reusable on this authorization.
+      // Stop counting refunds as free budget so what the app shows matches what PayPal really holds.
+      if (/MAX_CAPTURE_AMOUNT_EXCEEDED/i.test(purchase.error ?? "") && (m.refunded ?? 0) > 0 && !m.refundCreditBlocked) {
+        m.refundCreditBlocked = true;
+        logEvent(s, {
+          mandateId,
+          actor: "paypal",
+          kind: "refund_credit_blocked",
+          summary: `PayPal will not capture refunded money a second time from this hold. The budget now shows only what the hold still has ($${remainingBudget(m).toFixed(2)}). Nothing was spent.`,
+        });
+      }
       if (opts.limitOrderId) {
         const lo = s.limitOrders.find((x) => x.id === opts.limitOrderId);
         if (lo) {
@@ -724,6 +735,9 @@ export function getState(mandateId?: string) {
           ...active,
           // Only an active mandate has anything left to spend; a closed one's unspent money went back to the buyer.
           remaining: active.status === "active" ? remainingBudget(active) : 0,
+          // What the budget is really used for: gross captures minus refunds that are free to spend again.
+          netSpent: netSpent(active),
+          refundFreed: active.refundCreditBlocked ? 0 : (active.refunded ?? 0),
           // Whether closing really voided the PayPal hold (it can fail, in which case nothing was released).
           holdReleased: holdWasReleased(s.events, active.id),
           signatureValid: verifyMandate(active, s.signingSecret),

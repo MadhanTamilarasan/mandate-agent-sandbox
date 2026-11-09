@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { verifyWebhook } from "@/lib/paypal";
+import { PayPalError, verifyWebhook } from "@/lib/paypal";
 import { handleWebhook } from "@/lib/service";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (!(await verifyWebhook(req.headers, event, webhookId))) {
+    let verified = false;
+    try {
+      verified = await verifyWebhook(req.headers, event, webhookId);
+    } catch (e) {
+      // PayPal answers 400 when the signature headers are missing or malformed: that is a forged or broken
+      // request, not a server fault, so refuse it instead of returning a 5xx that PayPal would retry.
+      if (!(e instanceof PayPalError && e.status === 400)) throw e;
+    }
+    if (!verified) {
       return NextResponse.json({ error: "Signature verification failed" }, { status: 401 });
     }
     const result = await handleWebhook(event);

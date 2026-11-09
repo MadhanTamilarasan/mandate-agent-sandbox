@@ -63,12 +63,14 @@ export default function Home() {
   return (
     <>
       <SiteNav active="agent">
-        <span className="badge tone-warn hidden md:inline-flex">PayPal sandbox · no real money</span>
-        {state && <span className="chip hidden xl:inline-flex">{state.model}</span>}
+        {/* Full notice only where it fits; a short one in between, so it never sits on top of the tabs. */}
+        <span className="badge tone-warn hidden shrink-0 whitespace-nowrap min-[1400px]:inline-flex">PayPal sandbox · no real money</span>
+        <span className="badge tone-warn hidden shrink-0 whitespace-nowrap md:max-[1399px]:inline-flex">Sandbox</span>
+        {state && <span className="chip hidden shrink-0 whitespace-nowrap min-[1560px]:inline-flex">{state.model}</span>}
         {state && state.mandates.length > 0 && !creating && (
           <>
             <select
-              className="input min-w-0 max-w-[9.5rem] text-ellipsis sm:max-w-[16rem]"
+              className="input min-w-0 max-w-[9.5rem] shrink text-ellipsis sm:max-w-[16rem]"
               aria-label="Mandate"
               value={m?.id}
               onChange={(e) => {

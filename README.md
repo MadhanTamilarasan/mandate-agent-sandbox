@@ -114,9 +114,11 @@ Every captured purchase in the **Purchases** card has an **Undo purchase** butto
 
 - **Human only.** The agent has no refund tool (`lib/agent.ts` has search, propose and limit order, nothing else), and the route refuses
   cross-origin requests. Guardrails stop bad purchases; this lets a person reverse a mistake.
-- **A refund does not give budget back.** The money goes back to the buyer, but a PayPal capture uses up that part of the authorization for
-  good, so the mandate still counts it as spent and cannot spend it a second time. The UI says so. This keeps the guardrail at least as
-  strict as PayPal itself (`lib/refunds.ts`).
+- **A refund frees its budget again.** The money goes back to the buyer and "Available to spend" goes up by the same amount straight away
+  (`lib/refunds.ts`, `netSpent` in `lib/mandate.ts`). Safety does not depend on this: the PayPal authorization is the hard cap, so the app
+  can never capture more than the hold has. PayPal's docs don't say whether a refunded capture frees room on its authorization, so the
+  app is built to learn it: if PayPal ever answers `MAX_CAPTURE_AMOUNT_EXCEEDED` for money that was refunded, that purchase simply fails
+  (nothing is spent), the audit log says why, and from then on refunds stop freeing budget so the figure matches what PayPal really holds.
 - **Partial refunds** (made in PayPal) are tracked too: the purchase shows "Partly refunded" and keeps whatever is left refundable.
 - The Insights ledger shows each purchase's refunded amount, and "Spent by the agent" counts **net** spend (amount minus refunds, and
   nothing for a failed capture).

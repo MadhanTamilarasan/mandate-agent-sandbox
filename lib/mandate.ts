@@ -33,20 +33,30 @@ export function verifyMandate(m: Mandate, secret: string): boolean {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export function remainingBudget(m: Pick<Mandate, "budget" | "spent" | "reserved">): number {
-  return round2(m.budget - m.spent - m.reserved);
+type Refundable = Partial<Pick<Mandate, "refunded" | "refundCreditBlocked">>;
+
+/**
+ * What the budget has really been used for. Money refunded to the buyer is free to spend again, unless PayPal
+ * has shown it will not capture it a second time (`refundCreditBlocked`), in which case it stays used.
+ */
+export function netSpent(m: Pick<Mandate, "spent"> & Refundable): number {
+  return round2(Math.max(0, m.spent - (m.refundCreditBlocked ? 0 : (m.refunded ?? 0))));
+}
+
+export function remainingBudget(m: Pick<Mandate, "budget" | "spent" | "reserved"> & Refundable): number {
+  return round2(m.budget - netSpent(m) - m.reserved);
 }
 
 /**
  * What the budget still means for display. Only an active mandate has money left to spend; once it is
  * closed or expired, whatever was not spent is "unspent" (and "released" if the PayPal hold was voided).
  */
-export function budgetView(m: Pick<Mandate, "budget" | "spent" | "reserved" | "status" | "paypal">, holdReleased: boolean) {
+export function budgetView(m: Pick<Mandate, "budget" | "spent" | "reserved" | "status" | "paypal"> & Refundable, holdReleased: boolean) {
   const over = m.status === "closed" || m.status === "expired";
   // Once over, the money that mattered is what PayPal actually held (the budget field can have been edited by the
-  // "tamper" demo control and never restored).
+  // "tamper" demo control and never restored), and what its void released is the hold minus what was captured.
   const authorised = over ? (m.paypal.fundedAmount ?? m.budget) : m.budget;
-  const left = Math.max(0, round2(authorised - m.spent - m.reserved));
+  const left = Math.max(0, round2(authorised - (over ? m.spent : netSpent(m)) - m.reserved));
   return {
     authorised,
     spendable: m.status === "active" ? left : 0,

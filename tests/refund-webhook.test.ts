@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { budgetView, holdWasReleased, remainingBudget } from "../lib/mandate";
+import { budgetView, holdWasReleased, netSpent, remainingBudget } from "../lib/mandate";
+import { backfillRefunds } from "../lib/store";
 import { recordRefund, refundable, refundedTotal } from "../lib/refunds";
 import type { LimitOrder, Mandate, Purchase, Store } from "../lib/types";
 import { applyWebhookEvent, captureIdFromRefund, type WebhookEvent } from "../lib/webhook";
@@ -62,13 +63,72 @@ test("a full refund marks the purchase refunded and returns the money to the buy
   assert.equal(s.events.at(-1)?.kind, "refunded");
 });
 
-test("a refund does NOT hand budget back: the PayPal authorization is already used", () => {
+test("a refund frees its budget again, at once", () => {
   const s = makeStore();
   const m = s.mandates[0];
-  const before = remainingBudget(m);
+  assert.equal(remainingBudget(m), 60, "100 budget - 30 spent - 10 reserved");
   recordRefund(s, s.purchases[0], { id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "app" });
-  assert.equal(m.spent, 30);
-  assert.equal(remainingBudget(m), before, "the guardrail stays at least as strict as PayPal");
+  assert.equal(m.spent, 30, "spent stays the gross amount PayPal captured");
+  assert.equal(m.refunded, 30);
+  assert.equal(netSpent(m), 0);
+  assert.equal(remainingBudget(m), 90);
+  assert.match(s.events.at(-1)!.summary, /available in the mandate's budget again/);
+});
+
+test("a partial refund frees only what was refunded", () => {
+  const s = makeStore();
+  const m = s.mandates[0];
+  recordRefund(s, s.purchases[0], { id: "R1", amount: 12.5, status: "COMPLETED", at: "t", source: "paypal" });
+  assert.equal(remainingBudget(m), 72.5);
+});
+
+test("a refund seen twice frees its budget once", () => {
+  const s = makeStore();
+  const m = s.mandates[0];
+  recordRefund(s, s.purchases[0], { id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "app" });
+  recordRefund(s, s.purchases[0], { id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "paypal" });
+  assert.equal(m.refunded, 30);
+  assert.equal(remainingBudget(m), 90);
+});
+
+test("once PayPal refuses to re-capture refunded money, refunds stop freeing budget", () => {
+  const s = makeStore();
+  const m = s.mandates[0];
+  recordRefund(s, s.purchases[0], { id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "app" });
+  m.refundCreditBlocked = true;
+  assert.equal(netSpent(m), 30);
+  assert.equal(remainingBudget(m), 60, "back to what the PayPal hold really has");
+  recordRefund(s, { ...s.purchases[0], refunds: [], status: "captured" } as Purchase, { id: "R2", amount: 5, status: "COMPLETED", at: "t", source: "paypal" });
+  assert.equal(remainingBudget(m), 60);
+});
+
+test("refunds never push the budget above what was authorised", () => {
+  const s = makeStore();
+  const m = s.mandates[0];
+  m.spent = 0;
+  m.reserved = 0;
+  m.refunded = 50; // more refunded than ever spent, e.g. bad data
+  assert.equal(netSpent(m), 0);
+  assert.equal(remainingBudget(m), 100);
+});
+
+test("a closed mandate still reports what its void released from the gross captures", () => {
+  const s = makeStore();
+  const m = s.mandates[0];
+  recordRefund(s, s.purchases[0], { id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "app" });
+  m.status = "closed";
+  m.reserved = 0;
+  assert.equal(budgetView(m, true).released, 70, "the hold released 100 - 30 captured; the 30 refund went to the buyer");
+});
+
+test("older stores get their refunds added up on load", () => {
+  const s = makeStore();
+  s.purchases[0].refunds = [{ id: "R1", amount: 30, status: "COMPLETED", at: "t", source: "app" }];
+  backfillRefunds(s);
+  assert.equal(s.mandates[0].refunded, 30);
+  assert.equal(remainingBudget(s.mandates[0]), 90);
+  backfillRefunds(s);
+  assert.equal(s.mandates[0].refunded, 30, "running it again changes nothing");
 });
 
 test("a partial refund keeps the purchase captured and leaves the rest refundable", () => {

@@ -28,6 +28,10 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const pct = (n: number) => `${Math.max(0, Math.min(100, (n / m.budget) * 100))}%`;
+  // While active, money refunded to the buyer is free to spend again, so it leaves the "spent" bar. Once the
+  // mandate is over, "spent" is what PayPal actually captured from the hold.
+  const over = m.status === "closed" || m.status === "expired";
+  const spent = over ? m.spent : m.netSpent;
   const statusTone: Tone = m.status === "active" ? "good" : m.status === "pending_funding" ? "warn" : "muted";
   // Once the mandate is over, what mattered is what PayPal actually held (the budget field can have been edited
   // by the "tamper" demo control), and what is left of it is unspent (released, if the void went through).
@@ -73,6 +77,7 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
             <div className="figure num mt-2">{money(m.remaining)}</div>
             <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
               of {money(m.budget)} authorised
+              {m.refundFreed > 0 ? `, including ${money(m.refundFreed)} freed by a refund` : ""}
             </div>
           </>
         )}
@@ -90,20 +95,21 @@ export function MandateCard({ m, onChange }: { m: MandateView; onChange: () => v
             <div className="eyebrow">{unspent > 0 && m.holdReleased ? "Released back to the buyer" : "Left unspent"}</div>
             <div className="figure num mt-2">{money(unspent)}</div>
             <div className="serif mt-2 text-[0.9375rem] italic" style={{ color: "var(--muted)" }}>
-              of {money(authorised)} authorised, {money(m.spent)} spent. Closed: nothing more can be bought.
+              of {money(authorised)} authorised, {money(m.spent)} spent
+              {(m.refunded ?? 0) > 0 ? ` (${money(m.refunded ?? 0)} of it refunded to the buyer)` : ""}. Closed: nothing more can be bought.
             </div>
           </>
         )}
       </div>
 
-      <div className="meter mt-5" role="img" aria-label={`Spent ${money(m.spent)}, reserved ${money(m.reserved)} of ${money(m.budget)}`}>
-        <i style={{ width: pct(m.spent) }} />
+      <div className="meter mt-5" role="img" aria-label={`Spent ${money(spent)}, reserved ${money(m.reserved)} of ${money(m.budget)}`}>
+        <i style={{ width: pct(spent) }} />
         <i style={{ width: pct(m.reserved) }} />
       </div>
       <div className="legend num">
         <span>
           <i style={{ background: "var(--ink)" }} />
-          Spent {money(m.spent)}
+          Spent {money(spent)}
         </span>
         {m.status === "closed" || m.status === "expired" ? (
           <span>
@@ -385,8 +391,8 @@ export function Purchases({ items, onChange }: { items: AppState["purchases"]; o
       </div>
       {note && <p className="caption mt-3">{note}</p>}
       <p className="caption mt-3">
-        Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed. Undo returns the money to the buyer, but the
-        budget it used stays used: a PayPal authorization can&apos;t be spent twice.
+        Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed. Undo returns the money to the buyer and frees
+        that budget again.
       </p>
     </section>
   );

@@ -23,6 +23,10 @@ export type Mandate = MandateTerms & {
   spent: number;
   reserved: number; // held back for active limit orders
   tamperedFrom?: number; // demo control: original budget before a simulated tamper
+  /** Total returned to the buyer by refunds. Frees that much budget again unless `refundCreditBlocked`. */
+  refunded?: number;
+  /** Set once PayPal refuses to capture refunded money again: from then on refunds no longer free budget. */
+  refundCreditBlocked?: boolean;
   paypal: {
     orderId?: string;
     approveUrl?: string;

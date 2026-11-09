@@ -14,7 +14,7 @@ export function SiteNav({ active, children }: { active: (typeof TABS)[number]["i
   return (
     <header className="nav">
       <div className="mx-auto flex h-[64px] max-w-[1360px] items-center justify-between gap-3 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-5 sm:gap-8">
+        <div className="flex shrink-0 items-center gap-5 sm:gap-8">
           <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Mandate home">
             <Mark size={36} />
             <div className="leading-none">
@@ -32,7 +32,8 @@ export function SiteNav({ active, children }: { active: (typeof TABS)[number]["i
             ))}
           </nav>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
+        {/* The tabs never shrink; whatever sits on the right yields first (see the page's own children). */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           {children}
           <ThemeToggle />
         </div>

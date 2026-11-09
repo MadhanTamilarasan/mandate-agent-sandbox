@@ -31,6 +31,17 @@ function emptyStore(): Store {
   };
 }
 
+/** Refunds recorded before mandates tracked `refunded`: add them up so older data frees its budget too. */
+export function backfillRefunds(store: Store) {
+  for (const m of store.mandates) {
+    if (m.refunded !== undefined) continue;
+    const total = store.purchases
+      .filter((p) => p.mandateId === m.id)
+      .reduce((sum, p) => sum + (p.refunds ?? []).reduce((a, r) => a + r.amount, 0), 0);
+    if (total > 0) m.refunded = Math.round(total * 100) / 100;
+  }
+}
+
 function load(): Store {
   if (globalForStore.__mandateStore) return globalForStore.__mandateStore;
   let store: Store;
@@ -39,6 +50,7 @@ function load(): Store {
   } catch {
     store = emptyStore();
   }
+  backfillRefunds(store);
   globalForStore.__mandateStore = store;
   return store;
 }
