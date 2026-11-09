@@ -49,6 +49,12 @@ export const env = {
   get paypalWebhookId() {
     return opt("PAYPAL_WEBHOOK_ID");
   },
+  /** Postgres connection string. The pooled one is preferred when both are set (Neon gives both). Empty = no database. */
+  get databaseUrl() {
+    // Say the TLS mode out loud: `require` already means full certificate checks in the pg driver, and spelling it
+    // `verify-full` keeps that behaviour (and silences the driver's warning about a coming change).
+    return (opt("DATABASE_URL_POOLED") || opt("DATABASE_URL")).replace(/sslmode=(require|prefer|verify-ca)/, "sslmode=verify-full");
+  },
   get dataDir() {
     return opt("DATA_DIR", "./data");
   },

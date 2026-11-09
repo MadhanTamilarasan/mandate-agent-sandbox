@@ -11,6 +11,7 @@ try {
   process.loadEnvFile(".env");
 } catch {}
 process.env.DATA_DIR = path.join(os.tmpdir(), `mandate-smoke-${Date.now()}`);
+process.env.STORE = "file"; // never write the throwaway smoke data into a real database
 
 async function main() {
   const { parseMandate } = await import("../lib/parse-mandate");

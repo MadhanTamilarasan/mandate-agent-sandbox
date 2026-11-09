@@ -33,3 +33,5 @@ services:
         sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
+      - key: DATABASE_URL
+        sync: false

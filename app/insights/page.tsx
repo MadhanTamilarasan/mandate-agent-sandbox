@@ -4,6 +4,7 @@ import { InsightsClient } from "@/components/insights/InsightsClient";
 import { SiteNav } from "@/components/SiteNav";
 import { buildInsights } from "@/lib/insights";
 import { llmConfigured } from "@/lib/llm";
+import { storeReady } from "@/lib/store";
 
 export const metadata: Metadata = {
   title: "Insights - Mandate",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function InsightsPage() {
   await connection(); // live store: render per request
+  await storeReady();
 
   return (
     <>

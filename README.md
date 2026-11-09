@@ -107,6 +107,22 @@ Fill in `.env`:
 5. Open **Insights** in the top bar for the analytics dashboard (see below).
 6. **Close mandate** to void the unspent PayPal hold.
 
+## Where data is stored
+
+All state (mandates, purchases, approvals, limit orders, the audit log and the signing secret) is one object, kept in memory for reads and
+saved on every change (`lib/store.ts`).
+
+- **Hosted (Postgres):** with `DATABASE_URL` set and the app running in production, it is one jsonb row in a `mandate_state` table. The
+  table is created on first start, and the app loads the row before it takes requests. Data and the signing secret survive restarts and
+  redeploys. Each write runs in a transaction that locks the row and works on what the database holds right now, so two server instances
+  (such as during a deploy) can't overwrite each other, and a write that fails changes nothing. Free [Neon](https://neon.tech) works; use its
+  pooled connection string.
+- **Local (JSON file):** `npm run dev` uses `./data/store.json` even if a database URL is in your `.env`, so running locally never touches the
+  hosted data. Set `STORE=postgres` to use the database locally, or `STORE=file` to force the file. `STORE_KEY` (default `main`) names the row,
+  so one database can hold separate environments.
+- `npm run store:check` runs a live check of the Postgres store (restart, concurrent writes, rollback, another instance writing) on a
+  throwaway row that it deletes afterwards.
+
 ## Undo purchase (refunds)
 
 Every captured purchase in the **Purchases** card has an **Undo purchase** button. It refunds the PayPal capture to the buyer
@@ -248,6 +264,7 @@ lib/llm.ts           model selection, failover pool, timeouts
 lib/insights*.ts     analytics tables for the dashboard, built from the store
 lib/refunds.ts       refund bookkeeping (Undo purchase and webhooks share it)
 lib/webhook.ts       applies verified PayPal webhook events to the store; app/api/paypal/webhook/ is the endpoint
+lib/store.ts         saves the state: Postgres when hosted, a JSON file locally
 lib/preflight.ts     "would this purchase pass?": the real rules engine + auditor against a real mandate, read-only
 app/api/preflight/   its endpoint, used by the dashboard assistant's guardrail agent
 lib/redteam.ts       red team: derives attacks from a mandate, has an AI write the listings, judges with the real rules + auditor
@@ -264,7 +281,8 @@ lib/workflow.ts      triggers those tasks, with a local fallback
 
 - **Sandbox demo:** payments are real PayPal *sandbox* captures. No retailer order is placed, and products are real
   listings used for demonstration.
-- **Single user, no login.** State is a JSON file (`DATA_DIR`), and on Render's free tier the disk resets on redeploy.
+- **Single user, no login.** Everyone who opens the app sees the same mandates. State is kept in Postgres when `DATABASE_URL` is set
+  (see "Where data is stored"), otherwise in a JSON file, which on Render's free tier resets on every redeploy.
 - **PayPal may decline an approval in a stale browser session.** In testing, the sandbox checkout sometimes showed
   "Transaction declined: to comply with international regulations" (`COMPLIANCE_KYC_VIOLATION`) after several approve-and-close
   cycles in the same browser. Closing the private window and opening a fresh one cleared it. It comes from PayPal's own checkout,

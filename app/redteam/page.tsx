@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { RedTeam } from "@/components/RedTeam";
 import { SiteNav } from "@/components/SiteNav";
-import { readStore } from "@/lib/store";
+import { readStore, storeReady } from "@/lib/store";
 
 export const metadata: Metadata = {
   title: "Red team - Mandate",
@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 // The list of mandates comes from the live store.
 export const dynamic = "force-dynamic";
 
-export default function RedTeamPage() {
+export default async function RedTeamPage() {
+  await storeReady(); // instant once the server has started; here so the page never reads an unloaded store
   const mandates = [...readStore().mandates]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((m) => ({ id: m.id, name: m.name, status: m.status.replace(/_/g, " "), budget: m.budget }));

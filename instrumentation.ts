@@ -5,6 +5,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  // Load the saved state from the database before the server takes requests. If it can't be reached this throws,
+  // the deploy fails its start-up, and the previous version keeps serving instead of a broken one going live.
+  const { storeReady } = await import("./lib/store");
+  await storeReady();
+
   const g = globalThis as unknown as { __mandateWatcher?: boolean };
   if (g.__mandateWatcher) return;
   g.__mandateWatcher = true;
