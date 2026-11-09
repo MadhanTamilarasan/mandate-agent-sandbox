@@ -53,7 +53,7 @@ const overview: AgPageState = {
     "kpi-protected": kpi("Money kept safe", sum("reviews.protectedAmount"), "calendar::day"),
     "kpi-reviewed": kpi("Purchases reviewed", sum("reviews.count"), "calendar::day"),
     "kpi-block-rate": kpi("Block rate", { id: "blockRate" }),
-    "kpi-spent": kpi("Spent by the agent", sum("purchases.amount"), "calendar::day"),
+    "kpi-spent": kpi("Spent by the agent", sum("purchases.net"), "calendar::day"),
     "reviews-by-day": {
       type: "column-chart-stacked",
       dataMapping: {
@@ -200,16 +200,17 @@ const ledger: AgPageState = {
           { id: "purchases.via" },
           { id: "purchases.status" },
           sum("purchases.amount"),
+          sum("purchases.refunded"),
         ],
       },
       sort: [{ field: { id: "purchases.date" }, direction: "desc" }],
-      format: title("Captured purchases (PayPal sandbox)"),
+      format: title("Purchases (PayPal sandbox)"),
     },
     "spend-treemap": {
       type: "treemap-chart",
       dataMapping: {
         categoryKey: [{ id: "purchases.merchant" }, { id: "purchases.brand" }],
-        valueKey: [sum("purchases.amount")],
+        valueKey: [sum("purchases.net")],
       },
       format: title("Spend by merchant and brand"),
     },
@@ -217,7 +218,7 @@ const ledger: AgPageState = {
       type: "donut-chart",
       dataMapping: {
         categoryKey: [{ id: "purchases.via" }],
-        valueKey: [sum("purchases.amount")],
+        valueKey: [sum("purchases.net")],
       },
       format: { ...title("How purchases were approved"), ...legend },
     },

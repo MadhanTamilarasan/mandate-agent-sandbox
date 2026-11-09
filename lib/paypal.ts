@@ -153,13 +153,48 @@ export async function getAuthorization(authorizationId: string) {
   return call<any>("GET", `/v2/payments/authorizations/${authorizationId}`);
 }
 
-export async function refundCapture(captureId: string, amount?: number) {
-  return call<any>(
+export type RefundResult = { refundId: string; status: string; amount: number };
+
+/** Refund a capture: in full, or `amount` if only part of it is left to refund. */
+export async function refundCapture(captureId: string, amount?: number): Promise<RefundResult> {
+  const res = await call<any>(
     "POST",
     `/v2/payments/captures/${captureId}/refund`,
     amount ? { amount: { currency_code: "USD", value: amount.toFixed(2) } } : {},
     `refund-${captureId}-${amount ?? "full"}`,
   );
+  if (!res?.id) throw new PayPalError("PayPal did not return a refund id", 502, res?.debug_id, res);
+  return { refundId: res.id, status: String(res.status ?? "COMPLETED"), amount: Number(res.amount?.value ?? amount ?? 0) };
+}
+
+/**
+ * Ask PayPal whether a webhook request really came from PayPal. Never act on an unverified event: anyone can POST
+ * to a public URL.
+ */
+export async function verifyWebhook(headers: Headers, event: unknown, webhookId: string): Promise<boolean> {
+  const h = (name: string) => headers.get(name) ?? "";
+  const res = await call<{ verification_status?: string }>("POST", "/v1/notifications/verify-webhook-signature", {
+    auth_algo: h("paypal-auth-algo"),
+    cert_url: h("paypal-cert-url"),
+    transmission_id: h("paypal-transmission-id"),
+    transmission_sig: h("paypal-transmission-sig"),
+    transmission_time: h("paypal-transmission-time"),
+    webhook_id: webhookId,
+    webhook_event: event,
+  });
+  return res.verification_status === "SUCCESS";
+}
+
+/** Register this app's webhook URL for the given event types (used by scripts/register-webhook.ts). */
+export async function createWebhook(url: string, eventTypes: readonly string[]) {
+  return call<{ id: string; url: string }>("POST", "/v1/notifications/webhooks", {
+    url,
+    event_types: eventTypes.map((name) => ({ name })),
+  });
+}
+
+export async function listWebhooks() {
+  return call<{ webhooks?: { id: string; url: string }[] }>("GET", "/v1/notifications/webhooks");
 }
 
 export async function getOrder(orderId: string) {

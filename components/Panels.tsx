@@ -317,30 +317,77 @@ export function LimitOrders({ items, mandateId, onChange }: { items: AppState["l
   );
 }
 
-export function Purchases({ items }: { items: AppState["purchases"] }) {
+export function Purchases({ items, onChange }: { items: AppState["purchases"]; onChange: () => void }) {
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
   if (items.length === 0) return null;
+
+  async function undo(p: AppState["purchases"][number]) {
+    if (!confirm(`Refund ${money(p.refundable)} for "${p.product.title}" back to the buyer through PayPal?`)) return;
+    setBusy(p.id);
+    setNote("");
+    try {
+      const r = await post(`/api/purchases/${p.id}/refund`, {});
+      setNote(r.message);
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setBusy("");
+      onChange();
+    }
+  }
+
+  const label = (p: AppState["purchases"][number]) => (p.status === "captured" && p.refunded > 0 ? "Partly refunded" : sentence(p.status));
+  const tone = (p: AppState["purchases"][number]): Tone => (p.status === "captured" ? (p.refunded > 0 ? "warn" : "good") : p.status === "refunded" ? "muted" : "bad");
+
   return (
     <section className="card pad">
       <CardHead eyebrow="The ledger" title="Purchases" note="PayPal sandbox captures" />
       <div className="group">
         {items.map((p) => (
-          <div key={p.id} className="flex items-center gap-3 py-3" style={{ boxShadow: "inset 0 -1px 0 var(--line)" }}>
-            <ProductThumb p={p.product} size={40} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[0.875rem] font-semibold tracking-[-0.01em]">{p.product.title}</div>
-              <div className="caption truncate">
-                {p.product.merchant} · via {p.via.replace("_", " ")}
-                {p.captureId ? ` · ${p.captureId}` : ""}
+          <div key={p.id} className="py-3" style={{ boxShadow: "inset 0 -1px 0 var(--line)" }}>
+            <div className="flex items-center gap-3">
+              <ProductThumb p={p.product} size={40} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[0.875rem] font-semibold tracking-[-0.01em]">{p.product.title}</div>
+                <div className="caption truncate">
+                  {p.product.merchant} · via {p.via.replace("_", " ")}
+                  {p.captureId ? ` · ${p.captureId}` : ""}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="num serif text-[1.125rem] leading-none" style={p.status === "refunded" ? { textDecoration: "line-through", color: "var(--muted)" } : undefined}>
+                  {money(p.amount)}
+                </div>
+                <Badge tone={tone(p)}>{label(p)}</Badge>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <div className="num serif text-[1.125rem] leading-none">{money(p.amount)}</div>
-              <Badge tone={p.status === "captured" ? "good" : "bad"}>{sentence(p.status)}</Badge>
-            </div>
+            {p.refunded > 0 && (
+              <div className="caption mt-2 pl-[52px]">
+                {money(p.refunded)} went back to the buyer
+                {p.refunds?.some((r) => r.source === "paypal") ? " (refunded in PayPal)" : ""}.
+              </div>
+            )}
+            {p.refundable > 0 && (
+              <div className="mt-2 pl-[52px]">
+                <button
+                  className="btn btn-sm"
+                  disabled={!!busy}
+                  title="Refunds this capture to the buyer through PayPal. The agent cannot do this; only you can."
+                  onClick={() => undo(p)}
+                >
+                  {busy === p.id ? "Refunding…" : "Undo purchase"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
-      <p className="caption mt-3">Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed.</p>
+      {note && <p className="caption mt-3">{note}</p>}
+      <p className="caption mt-3">
+        Sandbox demo: the payment is real PayPal sandbox money; no retailer order is placed. Undo returns the money to the buyer, but the
+        budget it used stays used: a PayPal authorization can&apos;t be spent twice.
+      </p>
     </section>
   );
 }

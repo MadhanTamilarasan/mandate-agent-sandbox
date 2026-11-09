@@ -129,7 +129,7 @@ export default function Home() {
             <div className="min-w-0 space-y-5 lg:col-span-2 xl:col-span-1">
               <Approvals items={state.approvals} onChange={refresh} />
               <LimitOrders items={state.limitOrders} mandateId={m.id} onChange={refresh} />
-              <Purchases items={state.purchases} />
+              <Purchases items={state.purchases} onChange={refresh} />
               <AuditLog events={state.events} />
             </div>
           </div>

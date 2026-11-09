@@ -45,6 +45,10 @@ export const env = {
       `http://localhost:${opt("PORT", "3000")}`
     ).replace(/\/$/, "");
   },
+  /** Id of the webhook registered in PayPal (see `npm run webhook:register`). Empty = webhooks are off. */
+  get paypalWebhookId() {
+    return opt("PAYPAL_WEBHOOK_ID");
+  },
   get dataDir() {
     return opt("DATA_DIR", "./data");
   },

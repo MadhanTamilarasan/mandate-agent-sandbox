@@ -12,6 +12,7 @@ import {
   type RuleCheckRow,
 } from "./insights-types";
 import { budgetView, holdWasReleased } from "./mandate";
+import { refundedTotal } from "./refunds";
 import { readStore } from "./store";
 import type { AuditEvent, Decision, Mandate, RuleCheck } from "./types";
 
@@ -93,6 +94,8 @@ function liveInsights(): Omit<InsightsData, "asOf"> {
       brand: p.product.brand || "Unbranded",
       merchant: p.product.merchant,
       amount: p.amount,
+      refunded: refundedTotal(p),
+      net: p.status === "failed" ? 0 : round2(p.amount - refundedTotal(p)),
       via: { agent: "Agent", limit_order: "Limit order", human_approval: "Human approval" }[p.via],
       status: p.status.replace(/^./, (c) => c.toUpperCase()),
     })),

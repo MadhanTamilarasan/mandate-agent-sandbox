@@ -31,3 +31,5 @@ services:
         sync: false
       - key: AG_STUDIO
         sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false

@@ -4,6 +4,8 @@ import { getProduct } from "./channel3";
 import { checkRules, holdWasReleased, remainingBudget, round2, signMandate, strictest, verifyMandate } from "./mandate";
 import * as paypal from "./paypal";
 import { checkPricesViaWorkflow } from "./workflow";
+import { recordRefund, refundable, refundedTotal } from "./refunds";
+import { applyWebhookEvent, type WebhookEvent, type WebhookResult } from "./webhook";
 import { logEvent, mutate, newId, readStore } from "./store";
 import type {
   Approval,
@@ -270,6 +272,47 @@ async function settle(
       purchaseId: purchase.id,
     };
   });
+}
+
+/**
+ * "Undo purchase": a human-only action (the agent has no refund tool). Refunds whatever is left of the capture back
+ * to the buyer through PayPal. It does not hand budget back to the mandate (see lib/refunds.ts).
+ */
+export async function refundPurchase(purchaseId: string): Promise<{ ok: boolean; message: string }> {
+  return mutate(async (s) => {
+    const p = s.purchases.find((x) => x.id === purchaseId);
+    if (!p) return { ok: false, message: "Purchase not found." };
+    if (p.status === "refunded") return { ok: false, message: "This purchase was already refunded." };
+    if (p.status !== "captured" || !p.captureId) return { ok: false, message: "Only a captured purchase can be refunded." };
+    const left = refundable(p);
+    if (left <= 0) return { ok: false, message: "Nothing is left to refund on this purchase." };
+    try {
+      const r = await paypal.refundCapture(p.captureId, refundedTotal(p) > 0 ? left : undefined);
+      if (r.status === "FAILED" || r.status === "CANCELLED") throw new Error(`PayPal refund ${r.status.toLowerCase()}`);
+      const amount = r.amount || left;
+      recordRefund(s, p, { id: r.refundId, amount, status: r.status, at: new Date().toISOString(), source: "app" });
+      return { ok: true, message: `Refunded $${amount.toFixed(2)} for "${p.product.title}" back to the buyer.` };
+    } catch (e) {
+      logEvent(s, { mandateId: p.mandateId, actor: "paypal", kind: "refund_failed", summary: `Refund of "${p.product.title}" failed: ${(e as Error).message}` });
+      return { ok: false, message: `PayPal could not refund this purchase: ${(e as Error).message}` };
+    }
+  });
+}
+
+/** Applies a (signature-verified) PayPal webhook event. Also lets a webhook finish funding if the buyer never came back. */
+export async function handleWebhook(event: WebhookEvent): Promise<WebhookResult> {
+  const id = event?.resource?.id as string | undefined;
+  if (event?.event_type === "CHECKOUT.ORDER.APPROVED" && id) {
+    const m = readStore().mandates.find((x) => x.paypal.orderId === id);
+    if (m && m.status === "pending_funding") {
+      try {
+        await completeFunding(m.id, id); // same call the return URL makes; PayPal's request id makes it safe to repeat
+      } catch (e) {
+        await mutate((s) => logEvent(s, { mandateId: m.id, actor: "paypal", kind: "funding_failed", summary: `Could not place the hold after PayPal reported approval: ${(e as Error).message}` }));
+      }
+    }
+  }
+  return mutate((s) => applyWebhookEvent(s, event));
 }
 
 function recordReview(mandateId: string, product: ProductSnapshot, rules: { decision: Decision; checks: RuleCheck[] }, auditor: AuditorVerdict | undefined, final: Decision) {
@@ -686,7 +729,9 @@ export function getState(mandateId?: string) {
           signatureValid: verifyMandate(active, s.signingSecret),
         }
       : null,
-    purchases: scoped(s.purchases).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    purchases: scoped(s.purchases)
+      .map((p) => ({ ...p, refunded: refundedTotal(p), refundable: refundable(p) }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     approvals: scoped(s.approvals).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     limitOrders: scoped(s.limitOrders).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     events: scoped(s.events).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 80),

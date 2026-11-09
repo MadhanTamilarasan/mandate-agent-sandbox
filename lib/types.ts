@@ -57,6 +57,15 @@ export type AuditorVerdict = {
 
 export type PurchaseVia = "agent" | "limit_order" | "human_approval";
 
+/** Money returned to the buyer for one purchase (by "Undo purchase", or reported by a PayPal webhook). */
+export type Refund = {
+  id: string; // PayPal refund id
+  amount: number;
+  status: string; // PayPal's: COMPLETED, PENDING, ...
+  at: string;
+  source: "app" | "paypal"; // started here, or made in PayPal and reported by webhook
+};
+
 export type Purchase = {
   id: string;
   mandateId: string;
@@ -64,8 +73,10 @@ export type Purchase = {
   amount: number;
   via: PurchaseVia;
   captureId?: string;
+  /** "refunded" means fully refunded; a partial refund keeps "captured" and lists the refund. */
   status: "captured" | "failed" | "refunded";
   error?: string;
+  refunds?: Refund[];
   createdAt: string;
 };
 

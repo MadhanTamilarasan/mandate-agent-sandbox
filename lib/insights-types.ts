@@ -59,6 +59,10 @@ export type PurchaseRow = {
   brand: string;
   merchant: string;
   amount: number;
+  /** Money returned to the buyer (Undo purchase, or a refund made in PayPal). */
+  refunded: number;
+  /** What the buyer really paid: nothing for a failed capture, otherwise amount minus refunds. */
+  net: number;
   via: string;
   status: string;
 };

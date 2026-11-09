@@ -56,7 +56,9 @@ Most "agentic commerce" demos hand an AI a payment method and hope. Mandate does
 | Order authorize | `authorizeOrder` |
 | **Multiple partial captures on one authorization** (`final_capture: false`, idempotent `PayPal-Request-Id`, unique `invoice_id`) | `captureAuthorization` |
 | Void authorization to release unspent funds | `voidAuthorization` |
-| Refund and order lookup helpers | `refundCapture`, `getOrder` |
+| **Refund a capture** (the "Undo purchase" button) | `refundCapture`, `/api/purchases/[id]/refund` |
+| **Webhooks**: signature verified by PayPal, then the ledger follows captures, refunds, voids and buyer approval | `verifyWebhook`, `/api/paypal/webhook`, `lib/webhook.ts` |
+| Order lookup helper | `getOrder` |
 
 ## AI used
 
@@ -87,6 +89,7 @@ Fill in `.env`:
 | `CHANNEL3_API_KEY` | [trychannel3.com/developers](https://trychannel3.com/developers) (free; hackathon promo `PAYPAL-HACKATHON-2026`) |
 | `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (free, no card) |
 | `AG_STUDIO` (optional) | AG Studio licence key: free 45-day trial at [ag-grid.com/studio/react/enterprise-licence](https://www.ag-grid.com/studio/react/enterprise-licence/). Without it the Insights page still works, with a watermark. |
+| `PAYPAL_WEBHOOK_ID` (optional) | From `npm run webhook:register` (see PayPal webhooks below). Turns on live sync of refunds, voids and captures made in PayPal. |
 
 > **Use US sandbox accounts.** Sandbox accounts created with country India (IN) fail at PayPal checkout with
 > "This seller doesn't accept payments in your currency". Create a **US Business** account for the app and a **US Personal**
@@ -103,6 +106,41 @@ Fill in `.env`:
    signed value is restored.
 5. Open **Insights** in the top bar for the analytics dashboard (see below).
 6. **Close mandate** to void the unspent PayPal hold.
+
+## Undo purchase (refunds)
+
+Every captured purchase in the **Purchases** card has an **Undo purchase** button. It refunds the PayPal capture to the buyer
+(`POST /v2/payments/captures/{id}/refund`) and records the refund in the ledger and the audit log.
+
+- **Human only.** The agent has no refund tool (`lib/agent.ts` has search, propose and limit order, nothing else), and the route refuses
+  cross-origin requests. Guardrails stop bad purchases; this lets a person reverse a mistake.
+- **A refund does not give budget back.** The money goes back to the buyer, but a PayPal capture uses up that part of the authorization for
+  good, so the mandate still counts it as spent and cannot spend it a second time. The UI says so. This keeps the guardrail at least as
+  strict as PayPal itself (`lib/refunds.ts`).
+- **Partial refunds** (made in PayPal) are tracked too: the purchase shows "Partly refunded" and keeps whatever is left refundable.
+- The Insights ledger shows each purchase's refunded amount, and "Spent by the agent" counts **net** spend (amount minus refunds, and
+  nothing for a failed capture).
+
+## PayPal webhooks
+
+`POST /api/paypal/webhook` keeps the ledger in step with PayPal, including changes made outside the app.
+
+- **Verified first.** The raw body and PayPal's signature headers are sent to PayPal's `verify-webhook-signature` endpoint, and nothing
+  is applied unless it returns `SUCCESS`. With no `PAYPAL_WEBHOOK_ID` set the route answers 503 and does nothing.
+- **Events handled** (`lib/webhook.ts`, a store-only function covered by `tests/refund-webhook.test.ts`):
+
+  | Event | What happens |
+  |---|---|
+  | `PAYMENT.CAPTURE.COMPLETED` | audit-log line: PayPal confirms the money moved |
+  | `PAYMENT.CAPTURE.DENIED` / `DECLINED` | the purchase is marked failed and its amount is no longer counted as spent |
+  | `PAYMENT.CAPTURE.REFUNDED` | a refund made in the PayPal dashboard shows up here; a refund the app made itself is only confirmed, never counted twice |
+  | `PAYMENT.AUTHORIZATION.VOIDED` | if the hold was voided or expired in PayPal, the mandate closes and its limit orders are cancelled |
+  | `CHECKOUT.ORDER.APPROVED` | if the buyer approved but never came back to the app, this finishes funding (same call as the return URL) |
+
+- **Safe to repeat.** PayPal retries; every event id is remembered, so a retry changes nothing. Events for captures, holds or orders
+  that are not this app's (the sandbox account may have other apps) are ignored.
+- **Set up** (once the app is deployed over https): `APP_BASE_URL=https://your-app.onrender.com npm run webhook:register`, then put the
+  printed id in `PAYPAL_WEBHOOK_ID`. Without it everything else still works; the app just doesn't hear about changes made in PayPal.
 
 ## Insights dashboard (AG Studio)
 
@@ -172,7 +210,7 @@ the page says so and shows how much would have been bought.
 Run the tests and a live smoke test:
 
 ```bash
-npm test          # rules engine unit tests (no network)
+npm test          # unit tests: rules engine, red team, guardrail, refunds and webhooks (no network)
 npm run smoke     # real Gemini + Channel3 (no PayPal money movement)
 npm run typecheck
 ```
@@ -206,13 +244,15 @@ lib/paypal.ts        PayPal REST client
 lib/channel3.ts      Channel3 client
 lib/llm.ts           model selection, failover pool, timeouts
 lib/insights*.ts     analytics tables for the dashboard, built from the store
+lib/refunds.ts       refund bookkeeping (Undo purchase and webhooks share it)
+lib/webhook.ts       applies verified PayPal webhook events to the store; app/api/paypal/webhook/ is the endpoint
 lib/preflight.ts     "would this purchase pass?": the real rules engine + auditor against a real mandate, read-only
 app/api/preflight/   its endpoint, used by the dashboard assistant's guardrail agent
 lib/redteam.ts       red team: derives attacks from a mandate, has an AI write the listings, judges with the real rules + auditor
 app/redteam/         the Red team page; app/api/redteam/{plan,run} build and judge attacks (simulation only)
 app/insights/        the AG Studio dashboard page; components/insights/ holds its config, theme and AI adapter
 app/api/ai/llm/      server proxy for the dashboard's AI assistant (Gemini failover)
-tests/               rules engine tests
+tests/               unit tests (rules, red team, guardrail, refunds, webhooks)
 worker/              optional standalone limit-order watcher
 workflows/           optional Render Workflows tasks for parallel price checks (see above)
 lib/workflow.ts      triggers those tasks, with a local fallback

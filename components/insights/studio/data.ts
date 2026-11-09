@@ -125,6 +125,8 @@ export function buildStudioData(d: InsightsData): AgDataSourcesDefinition {
           ["brand", "Brand", "textFormat"],
           ["merchant", "Purchase Merchant", "textFormat"],
           ["amount", "Amount", "currencyFormat"],
+          ["refunded", "Refunded", "currencyFormat"],
+          ["net", "Net Spend", "currencyFormat"],
           ["via", "Approved Via", "textFormat"],
           ["status", "Payment Status", "textFormat"],
         ]),

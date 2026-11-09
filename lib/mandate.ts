@@ -56,8 +56,14 @@ export function budgetView(m: Pick<Mandate, "budget" | "spent" | "reserved" | "s
 }
 
 /** Whether closing a mandate really voided its PayPal hold (the void can fail, releasing nothing). */
-export function holdWasReleased(events: Pick<AuditEvent, "mandateId" | "kind" | "summary">[], mandateId: string): boolean {
-  return events.some((e) => e.mandateId === mandateId && e.kind === "closed" && /hold was released/.test(e.summary));
+export function holdWasReleased(events: Pick<AuditEvent, "mandateId" | "kind" | "summary" | "details">[], mandateId: string): boolean {
+  return events.some(
+    (e) =>
+      e.mandateId === mandateId &&
+      ((e.kind === "closed" && /hold was released/.test(e.summary)) ||
+        // PayPal told us (webhook) that the hold was voided outside the app.
+        (e.kind === "webhook" && (e.details as { externalVoid?: boolean } | undefined)?.externalVoid === true)),
+  );
 }
 
 export type RuleResult = { decision: Decision; checks: RuleCheck[] };

@@ -10,6 +10,7 @@
     "start": "next start",
     "worker": "tsx worker/watcher.ts",
     "smoke": "tsx scripts/smoke.ts",
+    "webhook:register": "tsx scripts/register-webhook.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },
