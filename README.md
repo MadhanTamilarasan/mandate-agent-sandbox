@@ -69,6 +69,16 @@ Most "agentic commerce" demos hand an AI a payment method and hope. Mandate does
 | **Channel3** | product search and live price/availability for 100M+ products across 25k retailers |
 | Provider swap | set `LLM_PROVIDER=anthropic` to run the same code on Claude |
 
+## Sponsor tools used
+
+| Sponsor tool | What we used it for | Where in the code |
+|---|---|---|
+| **Channel3** | Real product search and live prices for the agent, and the free product-detail lookup that the limit-order watcher polls | `lib/channel3.ts` |
+| **AG Studio (AG Grid)** | The Insights dashboard, themed from the app's own tokens, with a Gemini-backed assistant, a custom `guardrail` agent and tool (`check_purchase_against_mandate`), and a custom Mandate seal widget | `components/insights/`, `app/api/ai/llm/`, `app/api/preflight/` |
+| **Render** | Hosts the web app (Blueprint in `render.yaml`). Optional Render Workflows tasks for parallel price checks exist in `workflows/` but are off in the hosted demo | `render.yaml`, `workflows/`, `lib/workflow.ts` |
+
+Also used, not a listed sponsor: **Neon** (Postgres) stores the app's state when hosted (see "Where data is stored" below).
+
 ## Run it locally
 
 Requires Node 20+.
